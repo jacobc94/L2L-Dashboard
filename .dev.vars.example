@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local `npm run dev:api` (this file is only read by wrangler locally; never commit .dev.vars)
+SESSION_SECRET=replace-with-at-least-32-random-characters
+BOOTSTRAP_KEY=any-one-time-setup-key
+CRON_SECRET=replace-with-a-random-string
+# RESEND_API_KEY=re_...
+# MAIL_FROM=L2L Coaching <coaching@yourdomain.com>
+# APP_URL=http://localhost:8788

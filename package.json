@@ -1,0 +1,32 @@
+{
+  "name": "l2l-coaching-portal",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "dev:api": "wrangler pages dev dist --port 8788",
+    "preview:cloud": "npm run build && wrangler pages dev dist --port 8788",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.7.2",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5",
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+# Tiny Worker that pokes the portal once an hour so reminders are queued (and optionally emailed) on time.
+# Deploy separately:  cd cron-worker && npx wrangler deploy && npx wrangler secret put CRON_SECRET
+name = "l2l-coaching-cron"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+# Same URL as the portal's APP_URL
+PORTAL_URL = "https://REPLACE-WITH-YOUR-PORTAL-URL"

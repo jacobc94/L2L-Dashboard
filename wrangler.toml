@@ -1,0 +1,22 @@
+# Cloudflare Pages project for the L2L Coaching Portal (static app in /dist + API in /functions).
+name = "l2l-coaching-portal"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-01-01"
+
+# Your R2 bucket. Create it first (Cloudflare dashboard → R2 → Create bucket), then put its name here.
+# Locally, `wrangler pages dev` simulates this binding on disk — no account needed.
+[[r2_buckets]]
+binding = "L2L_BUCKET"
+bucket_name = "l2l-coaching"
+
+[vars]
+# Public URL of the portal — used in invite and reminder emails, e.g. "https://coaching.l2lconsultingteam.com"
+APP_URL = ""
+# Verified Resend sender, e.g. "L2L Coaching <coaching@l2lconsultingteam.com>". Leave blank to disable server email.
+MAIL_FROM = ""
+
+# Secrets (never put these in this file) — set with `wrangler pages secret put NAME`:
+#   SESSION_SECRET  random 32+ chars; signs sign-in cookies
+#   BOOTSTRAP_KEY   one-time key for creating the first admin
+#   RESEND_API_KEY  from resend.com (only if you want server-sent email)
+#   CRON_SECRET     shared with the cron worker in /cron-worker
