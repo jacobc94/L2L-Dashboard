@@ -397,17 +397,24 @@ function checkSettings(s: Record<string, unknown>): DirectoryFile['settings'] {
   return out;
 }
 
+const COACH_SELF_KEYS = ['availability', 'name', 'title', 'credentials', 'bio', 'timezone'];
+
 export interface DirectoryResult {
   dir: DirectoryFile;
   /** Credential-file bookkeeping the caller must perform */
   upserts: Array<{ id: string; role: 'admin' | 'coach' | 'client'; email: string }>;
   removals: string[];
+  /** Ids the caller must confirm no engagement still references before persisting */
+  removedClients: string[];
+  removedOrgs: string[];
 }
 
 export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx: Ctx): DirectoryResult {
   const d = clone(dir);
   const upserts: DirectoryResult['upserts'] = [];
   const removals: string[] = [];
+  const removedClients: string[] = [];
+  const removedOrgs: string[] = [];
   for (const ch of changes) {
     const rec = ch.record;
     switch (ch.c) {
@@ -418,7 +425,12 @@ export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx
       }
       case 'orgs': {
         if (!isAdmin(ctx)) fail('Only admins can manage organizations.');
-        if (ch.op === 'delete') fail('Organizations can\'t be deleted.');
+        if (ch.op === 'delete') {
+          if (d.clients.some((c) => c.orgId === ch.id)) fail('Move or remove this organization\'s clients first.');
+          d.orgs = d.orgs.filter((x) => x.id !== ch.id);
+          removedOrgs.push(String(ch.id));
+          break;
+        }
         const o = rec ?? fail('Missing record.');
         if (!ID_RE.test(String(o.id))) fail('Invalid id.');
         const item = { id: String(o.id), name: str(o.name, 'Name', 200, true), industry: str(o.industry, 'Industry', 200) || undefined };
@@ -427,10 +439,26 @@ export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx
         break;
       }
       case 'clients': {
-        if (!isAdmin(ctx)) fail('Only admins can manage clients.');
-        if (ch.op === 'delete') fail('Clients can\'t be deleted here.');
+        if (ch.op === 'delete') {
+          if (!isAdmin(ctx)) fail('Only admins can remove clients.');
+          const t = d.clients.find((c) => c.id === ch.id);
+          if (!t) break;
+          d.clients = d.clients.filter((c) => c.id !== ch.id);
+          removals.push(t.id);
+          removedClients.push(t.id);
+          break;
+        }
         const c = rec ?? fail('Missing record.');
         if (!ID_RE.test(String(c.id))) fail('Invalid id.');
+        if (!isAdmin(ctx)) {
+          // A client may update only their own name, title and phone (never email, organization or access)
+          const j = d.clients.findIndex((x) => x.id === c.id);
+          if (!isClientRole(ctx) || j < 0 || c.id !== ctx.user.id) fail('Only admins can manage clients.');
+          const keys = changedKeys(d.clients[j] as unknown as Record<string, unknown>, c);
+          if (keys.some((k) => !['name', 'title', 'phone'].includes(k))) fail('You can only change your name, title and phone.');
+          d.clients[j] = { ...d.clients[j], name: str(c.name, 'Name', 200, true).trim(), title: str(c.title, 'Title', 200), phone: str(c.phone, 'Phone', 50) || undefined };
+          break;
+        }
         const email = str(c.email, 'Email', 200, true).trim().toLowerCase();
         if (!EMAIL_RE.test(email)) fail('Enter a valid email.');
         if ([...d.clients, ...d.staff].some((p) => p.id !== c.id && p.email.toLowerCase() === email)) fail('That email is already in use.');
@@ -456,11 +484,16 @@ export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx
         if (!ID_RE.test(String(s.id))) fail('Invalid id.');
         const i = d.staff.findIndex((x) => x.id === s.id);
         if (!isAdmin(ctx)) {
-          // A coach may update only their own availability
+          // A coach may update only their own profile details and availability (never email or role)
           if (!isCoach(ctx) || i < 0 || s.id !== ctx.user.id) fail('Only admins can change team members.');
           const keys = changedKeys(d.staff[i] as unknown as Record<string, unknown>, s);
-          if (keys.some((k) => k !== 'availability')) fail('You can only change your own availability.');
-          d.staff[i] = { ...d.staff[i], availability: checkAvailability(s.availability) };
+          if (keys.some((k) => !COACH_SELF_KEYS.includes(k))) fail('You can only change your own profile details and availability.');
+          d.staff[i] = {
+            ...d.staff[i],
+            name: str(s.name, 'Name', 200, true).trim(), title: str(s.title, 'Title', 200),
+            credentials: str(s.credentials, 'Credentials', 100) || undefined, bio: str(s.bio, 'Bio', 1000) || undefined,
+            timezone: str(s.timezone, 'Timezone', 60) || 'Pacific Time', availability: checkAvailability(s.availability),
+          };
           break;
         }
         const email = str(s.email, 'Email', 200, true).trim().toLowerCase();
@@ -495,7 +528,7 @@ export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx
       default: fail('Unknown data type.');
     }
   }
-  return { dir: d, upserts, removals };
+  return { dir: d, upserts, removals, removedClients, removedOrgs };
 }
 
 // ───────────────────────── outbox ─────────────────────────

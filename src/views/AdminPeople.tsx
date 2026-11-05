@@ -2,7 +2,7 @@ import React from 'react';
 import { Building2, Pencil, Plus, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar, Badge, Btn, Card, CardHeader, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from '../components/ui';
 import { go, useStore } from '../store';
-import { Client, Staff } from '../types';
+import { Client, Organization, Staff } from '../types';
 import { uid } from '../utils/id';
 import { removeStaff } from '../utils/actions';
 import { InviteModal } from '../components/InviteModal';
@@ -12,16 +12,16 @@ export function PeoplePage() {
   const { state, mode } = useStore();
   const [inviting, setInviting] = React.useState<Client | null>(null);
   const [editing, setEditing] = React.useState<Client | 'new' | null>(null);
-  const [orgOpen, setOrgOpen] = React.useState(false);
+  const [orgOpen, setOrgOpen] = React.useState<Organization | 'new' | null>(null);
   return (
     <>
-      <PageHeader title="Clients & Organizations" subtitle="Everyone who takes part in a program." actions={<><Btn variant="secondary" icon={<Building2 className="h-4 w-4" />} onClick={() => setOrgOpen(true)}>Add organization</Btn><Btn variant="accent" icon={<UserPlus className="h-4 w-4" />} onClick={() => setEditing('new')}>Add client</Btn></>} />
+      <PageHeader title="Clients & Organizations" subtitle="Everyone who takes part in a program." actions={<><Btn variant="secondary" icon={<Building2 className="h-4 w-4" />} onClick={() => setOrgOpen('new')}>Add organization</Btn><Btn variant="accent" icon={<UserPlus className="h-4 w-4" />} onClick={() => setEditing('new')}>Add client</Btn></>} />
       <div className="space-y-5">
         {state.orgs.map((o) => {
           const clients = state.clients.filter((c) => c.orgId === o.id);
           return (
             <Card key={o.id}>
-              <CardHeader title={o.name} subtitle={`${o.industry ?? ''}${o.industry ? ' · ' : ''}${clients.length} ${clients.length === 1 ? 'person' : 'people'}`} icon={<Building2 className="h-5 w-5" />} />
+              <CardHeader title={o.name} subtitle={`${o.industry ?? ''}${o.industry ? ' · ' : ''}${clients.length} ${clients.length === 1 ? 'person' : 'people'}`} icon={<Building2 className="h-5 w-5" />} action={<Btn size="sm" variant="ghost" aria-label={`Edit ${o.name}`} icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setOrgOpen(o)}>Edit</Btn>} />
               {clients.length === 0 ? <Empty title="No clients yet" /> : (
                 <ul className="divide-y divide-brand-50">
                   {clients.map((c) => {
@@ -45,19 +45,40 @@ export function PeoplePage() {
         {state.orgs.length === 0 && <Card><Empty title="No organizations yet" icon={<Users className="h-9 w-9" />} /></Card>}
       </div>
       {editing && <ClientModal client={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
-      {orgOpen && <OrgModal onClose={() => setOrgOpen(false)} />}
+      {orgOpen && <OrgModal org={orgOpen === 'new' ? undefined : orgOpen} onClose={() => setOrgOpen(null)} />}
       {inviting && <InviteModal person={inviting} onClose={() => setInviting(null)} />}
     </>
   );
 }
 
-function OrgModal({ onClose }: { onClose: () => void }) {
-  const { mutate } = useStore();
-  const [name, setName] = React.useState('');
-  const [industry, setIndustry] = React.useState('');
+function OrgModal({ org, onClose }: { org?: Organization; onClose: () => void }) {
+  const { state, mutate } = useStore();
+  const [name, setName] = React.useState(org?.name ?? '');
+  const [industry, setIndustry] = React.useState(org?.industry ?? '');
+  const [confirming, setConfirming] = React.useState(false);
+  const people = org ? state.clients.filter((c) => c.orgId === org.id).length : 0;
+  const programs = org ? state.engagements.filter((e) => e.orgId === org.id).length : 0;
+  const canDelete = !!org && people === 0 && programs === 0;
+  const save = () => {
+    mutate((d) => {
+      if (org) { const t = d.orgs.find((x) => x.id === org.id); if (t) Object.assign(t, { name: name.trim(), industry: industry.trim() || undefined }); }
+      else d.orgs.push({ id: uid('o'), name: name.trim(), industry: industry.trim() || undefined });
+    });
+    onClose();
+  };
   return (
-    <Modal title="Add organization" onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!name.trim()} onClick={() => { mutate((d) => d.orgs.push({ id: uid('o'), name: name.trim(), industry: industry.trim() || undefined })); onClose(); }}>Add</Btn></>}>
-      <div className="space-y-4"><Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} autoFocus /></Field><Field label="Industry (optional)"><Input value={industry} onChange={(e) => setIndustry(e.target.value)} /></Field></div>
+    <Modal title={org ? 'Edit organization' : 'Add organization'} onClose={onClose} footer={<>
+      {org && (confirming
+        ? <Btn variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => { mutate((d) => { d.orgs = d.orgs.filter((x) => x.id !== org.id); }); onClose(); }}>Yes, delete {org.name}</Btn>
+        : <Btn variant="danger" className="mr-auto" disabled={!canDelete} title={canDelete ? undefined : 'Only organizations with no clients or programs can be deleted'} icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirming(true)}>Delete…</Btn>)}
+      <Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!name.trim()} onClick={save}>{org ? 'Save' : 'Add'}</Btn>
+    </>}>
+      <div className="space-y-4">
+        <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} autoFocus /></Field>
+        <Field label="Industry (optional)"><Input value={industry} onChange={(e) => setIndustry(e.target.value)} /></Field>
+        {org && !canDelete && <p className="text-xs text-brand-400">{people} {people === 1 ? 'person' : 'people'} and {programs} {programs === 1 ? 'program' : 'programs'} belong to this organization, so it can't be deleted.</p>}
+        {confirming && <p role="alert" className="rounded-lg bg-crimson-50 p-3 text-sm font-semibold text-crimson-700">This permanently deletes the organization. It has no clients or programs.</p>}
+      </div>
     </Modal>
   );
 }
@@ -67,8 +88,13 @@ function ClientModal({ client, onClose }: { client?: Client; onClose: () => void
   const [f, setF] = React.useState<Client>(client ?? { id: '', name: '', title: '', orgId: state.orgs[0]?.id ?? '', email: '', phone: '', accessCode: DEMO_CODE });
   const emailTaken = [...state.clients, ...state.staff].some((p) => p.email.toLowerCase() === f.email.trim().toLowerCase() && p.id !== client?.id);
   const valid = f.name.trim() && f.orgId && /.+@.+\..+/.test(f.email) && !emailTaken;
+  const [confirming, setConfirming] = React.useState(false);
+  const programs = client ? state.engagements.filter((e) => e.clientIds.includes(client.id)).length : 0;
   return (
-    <Modal title={client ? 'Edit client' : 'Add client'} onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!valid} onClick={() => { mutate((d) => { if (client) { const t = d.clients.find((c) => c.id === client.id); if (t) Object.assign(t, { ...f, name: f.name.trim(), email: f.email.trim() }); } else d.clients.push({ ...f, id: uid('c'), name: f.name.trim(), email: f.email.trim() }); }); onClose(); }}>{client ? 'Save' : 'Add client'}</Btn></>}>
+    <Modal title={client ? 'Edit client' : 'Add client'} onClose={onClose} footer={<>
+      {client && (confirming
+        ? <Btn variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => { mutate((d) => { d.clients = d.clients.filter((c) => c.id !== client.id); }); onClose(); }}>Yes, delete {client.name.split(' ')[0]}</Btn>
+        : <Btn variant="danger" className="mr-auto" disabled={programs > 0} title={programs > 0 ? 'Remove them from their program first' : undefined} icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirming(true)}>Delete…</Btn>)}<Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!valid} onClick={() => { mutate((d) => { if (client) { const t = d.clients.find((c) => c.id === client.id); if (t) Object.assign(t, { ...f, name: f.name.trim(), email: f.email.trim() }); } else d.clients.push({ ...f, id: uid('c'), name: f.name.trim(), email: f.email.trim() }); }); onClose(); }}>{client ? 'Save' : 'Add client'}</Btn></>}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name"><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></Field>
         <Field label="Title"><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
@@ -76,6 +102,8 @@ function ClientModal({ client, onClose }: { client?: Client; onClose: () => void
         <Field label="Phone"><Input value={f.phone ?? ''} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         <Field label="Email (their sign-in)" className="sm:col-span-2" hint={emailTaken ? 'That email is already used by someone else.' : undefined}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
       </div>
+      {client && programs > 0 && <p className="mt-3 text-xs text-brand-400">In {programs} program{programs === 1 ? '' : 's'}, so they can't be deleted until removed from {programs === 1 ? 'it' : 'them'}.</p>}
+      {confirming && <p role="alert" className="mt-3 rounded-lg bg-crimson-50 p-3 text-sm font-semibold text-crimson-700">This permanently deletes {client?.name} and ends their sign-in. They aren't in any program.</p>}
     </Modal>
   );
 }

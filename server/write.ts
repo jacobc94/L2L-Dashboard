@@ -81,6 +81,12 @@ export async function applyChanges(env: Env, user: SessionUser, rawChanges: unkn
     if (dirResult?.removals.length) {
       for (const f of next.values()) if (dirResult.removals.includes(f.engagement.coachId)) throw new RuleError('Reassign that person\'s clients before removing them.');
     }
+    if (dirResult?.removedClients.length) {
+      for (const f of next.values()) if (f.engagement.clientIds.some((id) => dirResult.removedClients.includes(id))) throw new RuleError('That client is part of a program. Remove them from it first.');
+    }
+    if (dirResult?.removedOrgs.length) {
+      for (const f of next.values()) if (dirResult.removedOrgs.includes(f.engagement.orgId)) throw new RuleError('That organization still has a program.');
+    }
     if (outboxChanges.length) applyOutboxChanges((await db.outbox(b)).data, outboxChanges, base([], dir2), allowedRecipients(dir2, user, next));
 
     // ── Phase 2: persist ──

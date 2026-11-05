@@ -10,6 +10,7 @@ import { CheckInsInbox, StaffMessages } from './views/StaffInbox';
 import { PeoplePage, TeamPage } from './views/AdminPeople';
 import { ContractsPage, HoursPage, RemindersPage, SettingsPage } from './views/AdminOps';
 import { ResourcesPage } from './views/ResourcesPage';
+import { ProfilePage } from './views/ProfilePage';
 
 export default function App() {
   const { auth, isAdmin, mode, configProblems } = useStore();
@@ -28,6 +29,7 @@ export default function App() {
     el = {
       home: <ClientHome />, program: <ClientProgram />, sessions: <ClientSessions />, contract: <ClientContract />,
       checkin: <ClientCheckIn />, actions: <ClientActions />, messages: <ClientMessages />, resources: <ClientResources />,
+      profile: <ProfilePage />,
     }[page] ?? <ClientHome />;
   } else {
     const adminOnly: Record<string, React.ReactNode> = isAdmin
@@ -38,6 +40,7 @@ export default function App() {
       engagements: a ? <EngagementWorkspace id={a} tab={b} /> : <EngagementsList />,
       schedule: <SchedulePage />, checkins: <CheckInsInbox />, messages: <StaffMessages />,
       hours: <HoursPage />, reminders: <RemindersPage />, resources: <ResourcesPage />,
+      profile: <ProfilePage />,
     } as Record<string, React.ReactNode>)[page] ?? <StaffDashboard />;
   }
 

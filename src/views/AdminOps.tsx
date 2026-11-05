@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, Copy, Download, ExternalLink, FileSignature, KeyRound, Mail, Plus, RotateCcw, Send, Trash2, Upload } from 'lucide-react';
+import { Bell, CheckCheck, Copy, Download, ExternalLink, FileSignature, Mail, Plus, RotateCcw, Send, Trash2, Upload } from 'lucide-react';
 import { Badge, Btn, Card, CardHeader, Empty, Field, Input, PageHeader, SEVERITY_DOT, Select, Stat, Tabs, Textarea, cx } from '../components/ui';
 import { go, useStore } from '../store';
 import { STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
@@ -12,6 +12,7 @@ import { downloadFile } from '../utils/ics';
 import { uid } from '../utils/id';
 import { api, ApiError } from '../api';
 import { STATE_VERSION } from '../data/seed';
+import { PasscodeCard } from './ProfilePage';
 
 // ───────────────────────── Contracts ─────────────────────────
 export function ContractsPage() {
@@ -327,25 +328,9 @@ export function SettingsPage() {
 
 /** Cloud mode: change your own passcode and download a full backup from the server. */
 function CloudAccountCards() {
-  const [cur, setCur] = React.useState('');
-  const [next, setNext] = React.useState('');
-  const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = React.useState(false);
   return (
     <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <Card>
-        <CardHeader title="Change my passcode" icon={<KeyRound className="h-5 w-5" />} />
-        <form className="space-y-4 p-5" onSubmit={async (e) => {
-          e.preventDefault(); setBusy(true); setMsg(null);
-          try { await api('auth/change-passcode', { body: { current: cur, next } }); setMsg({ ok: true, text: 'Passcode changed. Other devices have been signed out.' }); setCur(''); setNext(''); }
-          catch (err) { setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'Could not reach the server.' }); }
-          setBusy(false);
-        }}>
-          <Field label="Current passcode"><Input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
-          <Field label="New passcode" hint="At least 10 characters."><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required /></Field>
-          <div className="flex items-center gap-3"><Btn type="submit" variant="accent" disabled={busy || next.length < 10}>Change passcode</Btn>{msg && <span role="status" className={`text-sm font-semibold ${msg.ok ? 'text-emerald-700' : 'text-crimson-700'}`}>{msg.text}</span>}</div>
-        </form>
-      </Card>
+      <PasscodeCard />
       <Card>
         <CardHeader title="Backup" subtitle="Everything in the portal, as one JSON file. Keep it somewhere private." />
         <div className="p-5"><Btn variant="secondary" icon={<Download className="h-4 w-4" />} onClick={async () => {

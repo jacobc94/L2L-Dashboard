@@ -83,8 +83,10 @@ export function Shell({ active, children }: { active: string; children: React.Re
       </nav>
       <div className="border-t border-white/10 p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <Avatar name={v.name} tone="crimson" />
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{v.name}</p><p className="truncate text-xs text-brand-300">{roleLabel}</p></div>
+          <a href="#/profile" title="My profile" aria-current={active === 'profile' ? 'page' : undefined} className={cx('flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 -m-1 hover:bg-white/10', active === 'profile' && 'bg-white/10')}>
+            <Avatar name={v.name} tone="crimson" />
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-white">{v.name}</span><span className="block truncate text-xs text-brand-300">{roleLabel} · My profile</span></span>
+          </a>
           <button aria-label="Sign out" title="Sign out" onClick={() => { signOut(); window.location.hash = ''; }} className="rounded-lg p-2 text-brand-300 hover:bg-white/10 hover:text-white"><LogOut className="h-4 w-4" /></button>
         </div>
       </div>

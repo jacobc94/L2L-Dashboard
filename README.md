@@ -16,7 +16,7 @@ It runs in two modes, picked automatically:
 ```bash
 npm install
 npm run dev          # demo mode on http://localhost:5173
-npm test             # 64 tests: hours, slots, reminders, contracts, auth, access rules, email
+npm test             # 69 tests: hours, slots, reminders, contracts, auth, access rules, email
 npm run build
 ```
 

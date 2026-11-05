@@ -416,6 +416,59 @@ describe('staff writes', () => {
   });
 });
 
+describe('profiles', () => {
+  it('a coach can edit their own profile details but not their email, role or anyone else\'s profile', async () => {
+    const jen = await as(COACH);
+    expect((await jen.edit((d) => { Object.assign(d.staff.find((s) => s.id === 'st_jennifer')!, { name: 'Jennifer J. Jacobson', title: 'Lead Coach', credentials: 'BCC', bio: 'Hello.', timezone: 'Eastern Time' }); })).status).toBe(200);
+    expect((await (await as(COACH)).state()).staff.find((s) => s.id === 'st_jennifer')).toMatchObject({ name: 'Jennifer J. Jacobson', title: 'Lead Coach', credentials: 'BCC', bio: 'Hello.', timezone: 'Eastern Time', role: 'coach', email: COACH });
+    expect((await jen.edit((d) => { d.staff.find((s) => s.id === 'st_jennifer')!.email = 'new@l2l.example'; })).status).toBe(403);
+    expect((await jen.edit((d) => { d.staff.find((s) => s.id === 'st_jennifer')!.name = ''; })).status).toBe(403);
+    expect((await jen.edit((d) => { d.staff.find((s) => s.id === 'st_lynne')!.name = 'Hacked'; })).status).toBe(403);
+    expect(JSON.parse(bucket.files.get('users.json')!.text).st_jennifer.email).toBe(COACH);
+  });
+
+  it('a client can edit their own name, title and phone, but not email, organization or anyone else', async () => {
+    const maria = await as(MARIA);
+    expect((await maria.edit((d) => { Object.assign(d.clients.find((c) => c.id === 'c_maria')!, { name: 'Maria L. Alvarez', title: 'SVP Operations', phone: '(555) 999-0000' }); })).status).toBe(200);
+    expect((await (await as(MARIA)).state()).clients.find((c) => c.id === 'c_maria')).toMatchObject({ name: 'Maria L. Alvarez', title: 'SVP Operations', phone: '(555) 999-0000', email: MARIA, orgId: 'o_harbor' });
+    expect((await maria.edit((d) => { d.clients.find((c) => c.id === 'c_maria')!.email = 'x@y.example'; })).status).toBe(403);
+    expect((await maria.edit((d) => { d.clients.find((c) => c.id === 'c_maria')!.orgId = 'o_bright'; })).status).toBe(403);
+    expect((await maria.edit((d) => { d.clients.find((c) => c.id === 'c_maria')!.name = ''; })).status).toBe(403);
+    const priya = await as(PRIYA);
+    expect((await priya.edit((d) => { d.clients.find((c) => c.id === 'c_tom')!.name = 'Hacked'; })).status).toBe(403);
+  });
+
+  it('an admin can edit anyone\'s profile, including their own email, and the sign-in follows', async () => {
+    const lynne = await as(ADMIN);
+    expect((await lynne.edit((d) => { d.clients.find((c) => c.id === 'c_maria')!.email = 'maria.new@harborview.example'; })).status).toBe(200);
+    expect(JSON.parse(bucket.files.get('users.json')!.text).c_maria.email).toBe('maria.new@harborview.example');
+    expect((await new Session().login(MARIA)).status).toBe(401);
+    expect((await new Session().login('maria.new@harborview.example')).status).toBe(200);
+    expect((await lynne.edit((d) => { d.staff.find((s) => s.id === 'st_lynne')!.title = 'Founder'; })).status).toBe(200);
+  });
+
+  it('admins can rename, add and delete an unused organization, but not one that still has clients or programs', async () => {
+    const lynne = await as(ADMIN);
+    expect((await lynne.edit((d) => { d.orgs.find((o) => o.id === 'o_summit')!.name = 'Summit Ridge Health System'; })).status).toBe(200);
+    expect((await lynne.state()).orgs.find((o) => o.id === 'o_summit')!.name).toBe('Summit Ridge Health System');
+    expect((await lynne.edit((d) => { d.orgs.push({ id: 'o_empty', name: 'Empty Co' }); })).status).toBe(200);
+    expect((await lynne.edit((d) => { d.orgs = d.orgs.filter((o) => o.id !== 'o_empty'); })).status).toBe(200);
+    expect((await lynne.state()).orgs.some((o) => o.id === 'o_empty')).toBe(false);
+    expect((await lynne.edit((d) => { d.orgs = d.orgs.filter((o) => o.id !== 'o_bright'); })).status).toBe(403);
+    expect((await (await as(COACH)).edit((d) => { d.orgs.push({ id: 'o_x', name: 'X' }); })).status).toBe(403);
+  });
+
+  it('admins can delete a client who is in no program (their login stops), but not one who is', async () => {
+    const lynne = await as(ADMIN);
+    await lynne.edit((d) => { d.clients.push({ id: 'c_zed', name: 'Zed Zane', title: 'CTO', orgId: 'o_summit', email: 'zed@summitridge.example' }); });
+    expect((await lynne.edit((d) => { d.clients = d.clients.filter((c) => c.id !== 'c_maria'); })).status).toBe(403);
+    expect((await lynne.edit((d) => { d.clients = d.clients.filter((c) => c.id !== 'c_zed'); })).status).toBe(200);
+    expect((await lynne.state()).clients.some((c) => c.id === 'c_zed')).toBe(false);
+    expect(JSON.parse(bucket.files.get('users.json')!.text).c_zed).toBeUndefined();
+    expect((await (await as(COACH)).call('mutate', { body: { changes: [{ c: 'clients', op: 'delete', id: 'c_tom' }] } })).status).toBe(403);
+  });
+});
+
 describe('concurrency', () => {
   it('two people changing different records in the same engagement both succeed', async () => {
     const lynne = await as(ADMIN);
