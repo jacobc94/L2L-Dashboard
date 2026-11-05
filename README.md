@@ -26,14 +26,14 @@ You said you'll create the bucket — here's everything else.
 
 1. **Create the bucket** (dashboard → R2 → Create bucket, or `npx wrangler r2 bucket create l2l-coaching`).
    If you name it something other than `l2l-coaching`, change `bucket_name` in [`wrangler.toml`](wrangler.toml). Keep it **private** (no public access / custom domain on the bucket).
-2. **Create the Pages project** and deploy: `npm run build && npx wrangler pages deploy dist --project-name l2l-coaching-portal`
+2. **Create the Pages project** and deploy: `npm run build && npx wrangler pages deploy dist --project-name l2l-dashboard`
    (or connect the repo: build command `npm run build`, output `dist`). The R2 binding `L2L_BUCKET` comes from `wrangler.toml`.
 3. **Set secrets** (never commit these):
    ```bash
-   openssl rand -base64 32 | npx wrangler pages secret put SESSION_SECRET --project-name l2l-coaching-portal
-   npx wrangler pages secret put BOOTSTRAP_KEY --project-name l2l-coaching-portal     # any one-time phrase you'll type once
-   npx wrangler pages secret put CRON_SECRET   --project-name l2l-coaching-portal     # random string, shared with the cron worker
-   npx wrangler pages secret put RESEND_API_KEY --project-name l2l-coaching-portal    # only if you want server-sent email
+   openssl rand -base64 32 | npx wrangler pages secret put SESSION_SECRET --project-name l2l-dashboard
+   npx wrangler pages secret put BOOTSTRAP_KEY --project-name l2l-dashboard     # any one-time phrase you'll type once
+   npx wrangler pages secret put CRON_SECRET   --project-name l2l-dashboard     # random string, shared with the cron worker
+   npx wrangler pages secret put RESEND_API_KEY --project-name l2l-dashboard    # only if you want server-sent email
    ```
    and fill in `APP_URL` (your portal's public URL) and `MAIL_FROM` (a Resend-verified sender) in `wrangler.toml`, then redeploy.
 4. **Create the first admin:** open the site — it shows *First-time setup*. Enter the `BOOTSTRAP_KEY`, your name, email and a passcode.

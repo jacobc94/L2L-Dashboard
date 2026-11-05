@@ -1,5 +1,5 @@
 # Cloudflare Pages project for the L2L Coaching Portal (static app in /dist + API in /functions).
-name = "l2l-coaching-portal"
+name = 'l2l-dashboard'
 pages_build_output_dir = "dist"
 compatibility_date = "2025-01-01"
 
