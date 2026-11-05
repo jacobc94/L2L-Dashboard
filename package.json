@@ -9,6 +9,7 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "deploy": "npm run build && wrangler pages deploy dist --project-name l2l-dashboard",
+    "bundle": "npm run build && rm -rf dist-upload && cp -R dist dist-upload && wrangler pages functions build --outfile dist-upload/_worker.js --output-routes-path dist-upload/_routes.json",
     "dev:api": "wrangler pages dev dist --port 8788",
     "preview:cloud": "npm run build && wrangler pages dev dist --port 8788",
     "typecheck": "tsc -b"
