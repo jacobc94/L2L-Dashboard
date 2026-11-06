@@ -6,6 +6,7 @@ import { openSlots } from '../utils/slots';
 import { buildDigest, deriveReminders, queueDueEmails, queueWeeklyDigests, remindersFor, staffHref } from '../utils/reminders';
 import { bookSession, removeStaff, logSession, maybeActivate, setTaskDone, signContract, submitCheckIn, createEngagementScaffold } from '../utils/actions';
 import { renderContract } from '../utils/contractText';
+import { quickbooksInvoiceRows } from '../utils/quickbooks';
 import { AppState } from '../types';
 
 // Wednesday 4 Nov 2026, 10:00 local
@@ -187,5 +188,22 @@ describe('removing a coach', () => {
     expect(removeStaff(s, 'st_jennifer')).toBeNull();
     expect(removeStaff(s, 'st_lynne', 'st_jacob')).toBeNull();
     expect(removeStaff(s, 'st_jacob')).toMatch(/last admin/i);
+  });
+});
+
+describe('quickbooks export', () => {
+  it('makes one invoice per engagement with hours and a rate from the signed fee', () => {
+    const e = s.engagements.find((x) => x.id === 'e_maria')!;
+    const c = s.contracts.find((x) => x.engagementId === e.id)!;
+    Object.assign(c, { status: 'signed', fee: 1800, totalHours: 18 });
+    const done = s.sessions.filter((x) => x.engagementId === e.id && x.status === 'completed');
+    const month = done[0].start.slice(0, 7);
+    const sameMonth = done.filter((x) => x.start.startsWith(month));
+    const rows = quickbooksInvoiceRows(s, sameMonth, month, new Date(2026, 10, 4));
+    expect(rows).toHaveLength(1);
+    expect(rows[0][4]).toBe('Net 30');
+    expect(rows[0][9]).toBe(100);
+    expect(rows[0][8]).toBe(sameMonth.reduce((t, x) => t + (x.loggedHours ?? x.durationMin / 60), 0));
+    expect(rows[0][10]).toBe((rows[0][8] as number) * 100);
   });
 });

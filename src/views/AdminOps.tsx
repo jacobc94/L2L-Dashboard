@@ -8,6 +8,7 @@ import { summarizeHours } from '../utils/hours';
 import { fmtDate, fmtHours, nowIso } from '../utils/dates';
 import { deriveReminders, queueDueEmails, queueWeeklyDigests, staffHref } from '../utils/reminders';
 import { toCsv } from '../utils/csv';
+import { QB_HEADER, quickbooksInvoiceRows } from '../utils/quickbooks';
 import { downloadFile } from '../utils/ics';
 import { uid } from '../utils/id';
 import { api, ApiError } from '../api';
@@ -68,8 +69,12 @@ export function HoursPage() {
   const { state } = useStore();
   const v = useViewer();
   const dir = useDirectory();
-  const engs = useMyEngagements();
+  const allEngs = useMyEngagements();
   const [month, setMonth] = React.useState('all');
+  // Admins who also coach can narrow the page to the engagements they personally coach
+  const [scope, setScope] = React.useState<'all' | 'mine'>('all');
+  const coachesAny = v.isAdmin && allEngs.some((e) => e.coachId === v.id);
+  const engs = v.isAdmin && scope === 'mine' ? allEngs.filter((e) => e.coachId === v.id) : allEngs;
   const ids = new Set(engs.map((e) => e.id));
   const rows = engs.map((e) => ({ e, h: summarizeHours(e, state.sessions), c: state.contracts.find((c) => c.engagementId === e.id && c.status !== 'void') }));
   const tot = rows.reduce((t, r) => ({ contracted: t.contracted + r.h.contracted, used: t.used + r.h.used, sched: t.sched + r.h.scheduled, fee: t.fee + (r.c?.status === 'signed' ? r.c.fee ?? 0 : 0) }), { contracted: 0, used: 0, sched: 0, fee: 0 });
@@ -83,9 +88,11 @@ export function HoursPage() {
     ...ledger.map((s) => { const e = state.engagements.find((x) => x.id === s.engagementId)!; return [s.start.slice(0, 10), dir.label(e), dir.org(e.orgId)?.name, dir.staff(s.coachId)?.name, s.type, s.status, hoursOf(s)]; }),
   ]), 'text/csv');
 
+  const exportQb = () => downloadFile(`l2l-quickbooks-invoices-${month}.csv`, toCsv([QB_HEADER, ...quickbooksInvoiceRows(state, ledger.filter((s) => s.status === 'completed' || s.loggedHours), month)]), 'text/csv');
+
   return (
     <>
-      <PageHeader title={v.isAdmin ? 'Hours & Billing' : 'Hours'} subtitle="Contracted vs. delivered hours, and a ledger you can export for invoicing." actions={<Btn variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export ledger CSV</Btn>} />
+      <PageHeader title={v.isAdmin ? 'Hours & Billing' : 'Hours'} subtitle="Contracted vs. delivered hours, and a ledger you can export for invoicing." actions={<div className="flex items-center gap-2">{coachesAny && <div className="inline-flex rounded-lg bg-brand-50 p-0.5">{(['all', 'mine'] as const).map((k) => <button key={k} onClick={() => setScope(k)} aria-pressed={scope === k} className={cx('rounded-md px-3 py-1 text-xs font-bold', scope === k ? 'bg-white shadow-sm' : 'text-brand-400')}>{k === 'all' ? 'Everyone' : 'My coaching'}</button>)}</div>}<Btn variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export ledger CSV</Btn>{v.isAdmin && <><Btn variant="secondary" icon={<Download className="h-4 w-4" />} disabled={month === 'all'} title={month === 'all' ? 'Pick a month in the session ledger first' : 'One invoice per engagement for the selected month'} onClick={exportQb}>QuickBooks invoices CSV</Btn><a className="inline-flex items-center gap-1 text-xs font-bold text-brand-500 hover:text-crimson-700" href="https://qbo.intuit.com/app/invoice" target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" />Open QuickBooks</a></>}</div>} />
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Contracted hours" value={fmtHours(tot.contracted)} /><Stat label="Delivered" value={fmtHours(tot.used)} sub={tot.contracted ? `${Math.round((tot.used / tot.contracted) * 100)}% of contracted` : undefined} /><Stat label="Booked ahead" value={fmtHours(tot.sched)} /><Stat label="Signed contract value" value={`$${tot.fee.toLocaleString()}`} sub="from signed agreements" />
       </div>
