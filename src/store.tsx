@@ -77,7 +77,7 @@ export const useStore = () => {
   return v;
 };
 
-export function StoreProvider({ children, initial }: { children: React.ReactNode; initial?: AppState }) {
+export function StoreProvider({ children, initial, initialAuth }: { children: React.ReactNode; initial?: AppState; initialAuth?: AuthSession }) {
   const [mode, setMode] = React.useState<Mode>(initial ? 'demo' : 'loading');
   const [state, setStateRaw] = React.useState<AppState>(() => initial ?? emptyState());
   // The ref is the source of truth for writes so `mutate` runs its callback exactly once, synchronously
@@ -87,7 +87,7 @@ export function StoreProvider({ children, initial }: { children: React.ReactNode
     stateRef.current = next;
     setStateRaw(next);
   }, []);
-  const [auth, setAuth] = React.useState<AuthSession | null>(null);
+  const [auth, setAuth] = React.useState<AuthSession | null>(initialAuth ?? null);
   const [configProblems, setConfigProblems] = React.useState<string[] | null>(null);
   const [needsBootstrap, setNeedsBootstrap] = React.useState(false);
   const [canEmail, setCanEmail] = React.useState(false);
@@ -209,6 +209,7 @@ export function StoreProvider({ children, initial }: { children: React.ReactNode
 
   const persistDemoAuth = (a: AuthSession | null) => {
     setAuth(a);
+    if (initial) return; // in-memory sandbox: never touch stored sign-in
     try {
       if (a) localStorage.setItem(AUTH_KEY, JSON.stringify(a));
       else localStorage.removeItem(AUTH_KEY);

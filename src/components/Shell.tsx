@@ -1,8 +1,9 @@
 import React from 'react';
 import {
   Bell, BookOpen, CalendarDays, CheckSquare, Clock, FileSignature, HeartPulse, Home, LayoutDashboard, LogOut,
-  Mail, Menu, MessageSquare, Route, Settings, Users, Briefcase, X, Building2,
+  FlaskConical, Mail, Menu, MessageSquare, Route, Settings, Users, Briefcase, X, Building2,
 } from 'lucide-react';
+import { enterSandbox } from './DemoSandbox';
 import { Avatar, Badge, Logo, SEVERITY_DOT, cx } from './ui';
 import { go, useStore } from '../store';
 import { useMyEngagements, useViewer } from '../hooks';
@@ -51,7 +52,7 @@ export function useNav(): NavItem[] {
 }
 
 export function Shell({ active, children }: { active: string; children: React.ReactNode }) {
-  const { signOut, myReminders, syncError, clearSyncError, saving, mode } = useStore();
+  const { signOut, myReminders, syncError, clearSyncError, saving, mode, isAdmin } = useStore();
   const v = useViewer();
   const nav = useNav();
   const [open, setOpen] = React.useState(false);
@@ -82,6 +83,11 @@ export function Shell({ active, children }: { active: string; children: React.Re
         ))}
       </nav>
       <div className="border-t border-white/10 p-3">
+        {mode === 'cloud' && isAdmin && (
+          <button onClick={enterSandbox} className="mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-brand-100 hover:bg-white/10">
+            <FlaskConical className="h-[18px] w-[18px] text-brand-300" />Try the client view (demo)
+          </button>
+        )}
         <div className="flex items-center gap-3 rounded-lg px-2 py-2">
           <a href="#/profile" title="My profile" aria-current={active === 'profile' ? 'page' : undefined} className={cx('flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 -m-1 hover:bg-white/10', active === 'profile' && 'bg-white/10')}>
             <Avatar name={v.name} tone="crimson" />
