@@ -1,7 +1,8 @@
 // Pure write rules: given the current data, who is asking and what they want to change, decide what is allowed.
 // No I/O here so every rule is unit-testable. Throwing/collecting errors never leaves partial results behind:
 // callers apply to a copy and only persist if there were no errors.
-import type { Client, Engagement, Session, Staff } from '../src/types';
+import type { Client, ClientPortal, Engagement, Session, Staff } from '../src/types';
+import { BUILT_IN_PAGES, CHECK_IN_LABELS, SECTION_TYPES } from '../src/utils/portal';
 import { openSlots } from '../src/utils/slots';
 import { getNow } from '../src/utils/dates';
 import type { Change, DirectoryFile, EngagementFile, SessionUser } from './types';
@@ -263,8 +264,30 @@ function upsertCheckIn(f: EngagementFile, rec: Record<string, unknown>, ctx: Ctx
     if (next.weekOf !== ctx.weekStart) fail('You can only submit this week\'s check-in.');
     num(next.energy, 'Energy', 1, 5); num(next.progress, 'Progress', 1, 5);
     for (const k of ['wins', 'challenges', 'focusNext', 'supportNeeded'] as const) str(next[k], k, 3000);
+    const questions = ctx.dir.clients.find((c) => c.id === ctx.user.id)?.portal?.checkInQuestions ?? [];
+    const previous = old?.answers ?? [];
+    if (next.answers !== undefined && !Array.isArray(next.answers)) fail('Invalid check-in answers.');
+    const answers = next.answers ?? [];
+    if (answers.length > 50 || answers.some((a) => !a || typeof a !== 'object') || new Set(answers.map((a) => a.id)).size !== answers.length) fail('Invalid check-in answers.');
+    for (const answer of answers) {
+      if (!answer || typeof answer !== 'object') fail('Invalid check-in answer.');
+      const question = questions.find((q) => q.id === answer.id);
+      const prior = previous.find((a) => a.id === answer.id);
+      if (!question && !prior) fail('Unknown check-in question.');
+      if (answer.question !== (prior?.question ?? question?.label)) fail('Invalid check-in question.');
+      if (typeof answer.answer !== 'string') fail('Answer must be text.');
+      str(answer.answer, 'Answer', 3000);
+      if (!question && !same(answer, prior)) fail('Previous answers cannot be changed after their question is removed.');
+    }
+    for (const prior of previous) if (!answers.some((a) => a.id === prior.id)) fail('Previous answers must be preserved.');
+    for (const q of questions) {
+      const answer = answers.find((a) => a.id === q.id);
+      if (!answer || (q.required && !answer.answer.trim())) fail('Complete the check-in questions.');
+    }
     if (!same(old?.coachResponse, next.coachResponse) || !same(old?.respondedAt, next.respondedAt)) fail('Only your coach can reply.');
-    const merged = { ...next, submittedAt: ctx.nowIso, coachResponse: old?.coachResponse, respondedAt: old?.respondedAt };
+    const labels = ctx.dir.clients.find((c) => c.id === ctx.user.id)?.portal?.checkInLabels;
+    if (!same(next.questionLabels, old ? old.questionLabels : labels)) fail('Check-in questions changed. Refresh and try again.');
+    const merged = { ...next, submittedAt: ctx.nowIso, coachResponse: old?.coachResponse, respondedAt: old?.respondedAt, questionLabels: old ? old.questionLabels : labels };
     if (i >= 0) f.checkIns[i] = merged; else f.checkIns.push(merged);
     return;
   }
@@ -397,6 +420,54 @@ function checkSettings(s: Record<string, unknown>): DirectoryFile['settings'] {
   return out;
 }
 
+function checkClientPortal(value: unknown): ClientPortal | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('Invalid client portal.');
+  const portal = value as ClientPortal;
+  if (!Array.isArray(portal.pages) || portal.pages.length > 30 || !Array.isArray(portal.checkInQuestions) || portal.checkInQuestions.length > 20) fail('Invalid client portal.');
+  const pageIds = new Set<string>();
+  const pages = portal.pages.map((p) => {
+    if (!p || typeof p !== 'object' || typeof p.id !== 'string' || !ID_RE.test(p.id)) return fail('Invalid page.');
+    const builtIn = BUILT_IN_PAGES.some((b) => b.id === p.id);
+    if ((!builtIn && !p.id.startsWith('p_')) || pageIds.has(p.id)) return fail('Invalid or duplicate page id.');
+    pageIds.add(p.id);
+    const title = str(p.title, 'Page title', 100, true).trim();
+    if (!title || !Array.isArray(p.sections) || p.sections.length > 30) return fail('Invalid page sections.');
+    const sectionIds = new Set<string>();
+    let originals = 0;
+    const sections = p.sections.map((s) => {
+      if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !ID_RE.test(s.id) || sectionIds.has(s.id)) return fail('Invalid or duplicate section id.');
+      sectionIds.add(s.id);
+      if (s.type === 'original') originals++;
+      else if (!SECTION_TYPES.some((t) => t.type === s.type)) return fail('Invalid section type.');
+      return { id: s.id, type: s.type, ...(s.type === 'text' ? { heading: str(s.heading, 'Heading', 200), text: str(s.text, 'Text', 10000) } : {}) };
+    });
+    if (originals > (builtIn ? 1 : 0)) return fail('Invalid original page section.');
+    return { id: p.id, title, sections };
+  });
+  const questionIds = new Set<string>();
+  const checkInQuestions = portal.checkInQuestions.map((q) => {
+    if (!q || typeof q !== 'object' || typeof q.id !== 'string' || !ID_RE.test(q.id) || !q.id.startsWith('q_') || questionIds.has(q.id) || typeof q.required !== 'boolean') return fail('Invalid check-in question.');
+    questionIds.add(q.id);
+    const label = str(q.label, 'Question', 500, true).trim();
+    if (!label) return fail('Question is required.');
+    return { id: q.id, label, required: q.required };
+  });
+  let checkInLabels: ClientPortal['checkInLabels'];
+  if (portal.checkInLabels !== undefined) {
+    if (!portal.checkInLabels || typeof portal.checkInLabels !== 'object' || Array.isArray(portal.checkInLabels) || Object.keys(portal.checkInLabels).some((k) => !(k in CHECK_IN_LABELS))) return fail('Invalid check-in labels.');
+    checkInLabels = {};
+    for (const key of Object.keys(CHECK_IN_LABELS) as Array<keyof typeof CHECK_IN_LABELS>) {
+      if (portal.checkInLabels[key] !== undefined) {
+        const label = str(portal.checkInLabels[key], 'Check-in label', 500, true).trim();
+        if (!label) return fail('Check-in label is required.');
+        checkInLabels[key] = label;
+      }
+    }
+  }
+  return { pages, checkInQuestions, ...(checkInLabels ? { checkInLabels } : {}) };
+}
+
 const COACH_SELF_KEYS = ['availability', 'name', 'title', 'credentials', 'bio', 'timezone'];
 
 export interface DirectoryResult {
@@ -463,7 +534,7 @@ export function applyDirectoryChanges(dir: DirectoryFile, changes: Change[], ctx
         if (!EMAIL_RE.test(email)) fail('Enter a valid email.');
         if ([...d.clients, ...d.staff].some((p) => p.id !== c.id && p.email.toLowerCase() === email)) fail('That email is already in use.');
         if (!d.orgs.some((o) => o.id === c.orgId)) fail('Choose an organization.');
-        const item: Client = { id: String(c.id), name: str(c.name, 'Name', 200, true).trim(), title: str(c.title, 'Title', 200), orgId: String(c.orgId), email, phone: str(c.phone, 'Phone', 50) || undefined };
+        const item: Client = { id: String(c.id), name: str(c.name, 'Name', 200, true).trim(), title: str(c.title, 'Title', 200), orgId: String(c.orgId), email, phone: str(c.phone, 'Phone', 50) || undefined, portal: checkClientPortal(c.portal) };
         const i = d.clients.findIndex((x) => x.id === item.id);
         if (i >= 0) d.clients[i] = item; else d.clients.push(item);
         upserts.push({ id: item.id, role: 'client', email });

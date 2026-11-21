@@ -1,7 +1,7 @@
 import type { Role } from '../src/types';
 import { DEFAULT_RESOURCES, DEFAULT_SETTINGS } from '../src/data/defaults';
-import { db, bucketOf } from './db';
-import { hashSecret, inviteCode, normalizeCode, sha256, signToken, timingSafeEqual, verifySecret, verifyToken } from './crypto';
+import { db, bucketOf, update } from './db';
+import { b64url, hashSecret, inviteCode, normalizeCode, randomBytes, sha256, signToken, timingSafeEqual, verifySecret, verifyToken } from './crypto';
 import { assertSameOriginWrite, clientIp, json, readBody } from './http';
 import { mailConfigured, sendMail } from './mail';
 import { Env, HttpError, R2Bucket, SessionUser, UserCred } from './types';
@@ -11,6 +11,8 @@ const SESSION_DAYS = 7;
 const INVITE_DAYS = 7;
 const WINDOW_MS = 15 * 60_000;
 const LIMITS = { u: 5, ip: 30 };
+const RESET_WINDOW_MS = 15 * 60_000;
+const RESET_EXPIRY_MS = 60 * 60_000;
 
 const GENERIC_LOGIN_ERROR = "That email and passcode don't match.";
 // Real PBKDF2 hash of a throwaway value, verified when the email is unknown so response time doesn't reveal which emails exist
@@ -49,6 +51,27 @@ async function clearFailures(b: R2Bucket, kind: 'u' | 'ip', id: string) {
 async function assertNotLocked(b: R2Bucket, request: Request, email: string) {
   const mins = Math.max(await lockedFor(b, 'u', email), await lockedFor(b, 'ip', clientIp(request)));
   if (mins > 0) throw new HttpError(429, `Too many attempts. Try again in about ${mins} minute${mins === 1 ? '' : 's'}.`);
+}
+
+async function limitReset(b: R2Bucket, kind: 'request-email' | 'request-ip' | 'redeem-ip', id: string, limit: number) {
+  const key = `reset-attempts/${kind}-${(await sha256(id.toLowerCase())).slice(0, 32)}.json`;
+  const allowed = await update<Attempts, boolean>(b, key, () => ({ count: 0, windowStart: Date.now() }), (a) => {
+    if (Date.now() - a.windowStart >= RESET_WINDOW_MS) { a.count = 0; a.windowStart = Date.now(); }
+    if (a.count >= limit) return false;
+    a.count++;
+    return true;
+  });
+  if (!allowed) throw new HttpError(429, 'Too many reset attempts. Please try again later.');
+}
+
+function resetOrigin(env: Env): string {
+  if (!env.APP_URL) throw new HttpError(503, 'Password reset is not configured. Contact an administrator.');
+  let url: URL;
+  try { url = new URL(env.APP_URL); } catch { throw new HttpError(503, 'Password reset is not configured. Contact an administrator.'); }
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) || url.username || url.password || url.search || url.hash) {
+    throw new HttpError(503, 'Password reset is not configured. Contact an administrator.');
+  }
+  return url.toString().replace(/\/+$/, '');
 }
 
 // ── Sessions ──
@@ -185,15 +208,85 @@ export async function invite(request: Request, env: Env, actor: SessionUser) {
   let emailed = false;
   if (body.sendEmail) {
     const dir = (await db.directory(b)).data;
+    const org = dir?.settings.orgName ?? 'L2L Consulting Team';
     await sendMail(env, {
       to: target.email,
-      subject: `You're invited to the ${dir?.settings.orgName ?? 'L2L'} coaching portal`,
-      text: `Hello,\n\nYou've been invited to the ${dir?.settings.orgName ?? 'L2L Consulting Team'} coaching portal.\n\nSet your passcode here (the link works once and expires in ${INVITE_DAYS} days):\n${link}\n\nOr open ${appOrigin(request, env)} and choose "Join with invite code". Your invite code is: ${code}\n\nIf you weren't expecting this, you can ignore this email.`,
+      subject: target.hash ? `Reset your ${org} coaching portal passcode` : `You're invited to the ${org} coaching portal`,
+      text: `Hello,\n\n${target.hash ? `An administrator requested a passcode reset for your ${org} coaching portal account.` : `You've been invited to the ${org} coaching portal.`}\n\nSet your passcode here (the link works once and expires in ${INVITE_DAYS} days):\n${link}\n\nOr open ${appOrigin(request, env)} and choose "Join with invite code". Your invite code is: ${code}\n\nIf you weren't expecting this, you can ignore this email.`,
       replyTo: dir?.settings.supportEmail,
     });
     emailed = true;
   }
   return json({ ok: true, code, link, expires, emailed, email: target.email });
+}
+
+/** Request a reset without revealing whether an account exists. */
+export async function requestReset(request: Request, env: Env) {
+  assertSameOriginWrite(request);
+  const b = bucketOf(env);
+  secretOf(env);
+  const origin = resetOrigin(env);
+  if (!mailConfigured(env)) throw new HttpError(503, 'Password reset email is not configured. Contact an administrator.');
+  const body = await readBody<{ email?: unknown }>(request, 10_000);
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  if (email.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address.');
+  await limitReset(b, 'request-ip', clientIp(request), 20);
+  await limitReset(b, 'request-email', email, 3);
+  const token = b64url(randomBytes(32));
+  const hash = await sha256(token);
+  const expires = new Date(Date.now() + RESET_EXPIRY_MS).toISOString();
+  const users = (await db.users(b)).data;
+  const user = Object.values(users).find((u) => u.email.toLowerCase() === email && u.hash);
+  if (user) {
+    const target = await db.updateUsers(b, (all) => {
+      const current = all[user.id];
+      if (!current?.hash || current.email.toLowerCase() !== email) return false;
+      current.reset = { hash, expires };
+      return true;
+    });
+    if (target) {
+      const link = `${origin}/#/reset?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+      const dir = (await db.directory(b)).data;
+      try {
+        await sendMail(env, {
+          to: email, subject: 'Reset your coaching portal passcode',
+          text: `A passcode reset was requested for your coaching portal account.\n\nChoose a new passcode using this link (valid for one hour):\n${link}\n\nIf you did not request this, you can ignore this email. Your current passcode still works.`,
+          replyTo: dir?.settings.supportEmail,
+        });
+      } catch (e) {
+        console.error('Password reset email delivery failed.', e instanceof HttpError ? `HTTP ${e.status}` : 'Network or provider error');
+      }
+    }
+  }
+  return json({ ok: true });
+}
+
+/** Consume a single-use reset token and invalidate existing sessions. */
+export async function resetPasscode(request: Request, env: Env) {
+  assertSameOriginWrite(request);
+  const b = bucketOf(env);
+  secretOf(env);
+  const body = await readBody<{ email?: unknown; token?: unknown; passcode?: unknown }>(request, 10_000);
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const token = typeof body.token === 'string' ? body.token : '';
+  await limitReset(b, 'redeem-ip', clientIp(request), 30);
+  if (email.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw new HttpError(400, 'That reset link is invalid or expired.');
+  const hash = await sha256(token);
+  const users = (await db.users(b)).data;
+  const user = Object.values(users).find((u) => u.email.toLowerCase() === email);
+  if (!user?.reset || !timingSafeEqual(hash, user.reset.hash) || !(Date.parse(user.reset.expires) > Date.now())) throw new HttpError(400, 'That reset link is invalid or expired.');
+  const passcode = checkPasscode(body.passcode, email);
+  const pw = await hashSecret(passcode);
+  const updated = await db.updateUsers(b, (all) => {
+    const u = all[user.id];
+    if (!u?.reset || u.email.toLowerCase() !== email || !timingSafeEqual(hash, u.reset.hash) || !(Date.parse(u.reset.expires) > Date.now())) return null;
+    u.hash = pw.hash; u.salt = pw.salt; u.iters = pw.iters; u.sv++;
+    delete u.reset; delete u.invite;
+    return { ...u };
+  });
+  if (!updated) throw new HttpError(400, 'That reset link is invalid or expired.');
+  await clearFailures(b, 'u', email);
+  return json({ ok: true, user: { id: updated.id, role: updated.role } }, 200, { 'Set-Cookie': await setSessionCookie(request, env, updated) });
 }
 
 export async function join(request: Request, env: Env) {
@@ -220,7 +313,7 @@ export async function join(request: Request, env: Env) {
   const updated = await db.updateUsers(b, (all) => {
     const u = all[user.id];
     if (!u?.invite || !timingSafeEqual(u.invite.hash, user.invite!.hash)) return null; // already used
-    u.hash = pw.hash; u.salt = pw.salt; u.iters = pw.iters; u.sv = (u.sv ?? 0) + 1; delete u.invite;
+    u.hash = pw.hash; u.salt = pw.salt; u.iters = pw.iters; u.sv = (u.sv ?? 0) + 1; delete u.invite; delete u.reset;
     return { ...u };
   });
   if (!updated) return bad();
@@ -244,7 +337,7 @@ export async function changePasscode(request: Request, env: Env, actor: SessionU
   const pw = await hashSecret(next);
   const updated = await db.updateUsers(b, (all) => {
     const u = all[actor.id];
-    u.hash = pw.hash; u.salt = pw.salt; u.iters = pw.iters; u.sv++;
+    u.hash = pw.hash; u.salt = pw.salt; u.iters = pw.iters; u.sv++; delete u.reset; delete u.invite;
     return { ...u };
   });
   return json({ ok: true }, 200, { 'Set-Cookie': await setSessionCookie(request, env, updated) });
@@ -258,6 +351,7 @@ export async function syncUser(b: R2Bucket, rec: { id: string; role: Role; email
       // A role change invalidates existing sessions so the new permissions apply immediately
       if (u.role !== rec.role) u.sv++;
       u.role = rec.role;
+      if (u.email.toLowerCase() !== rec.email.toLowerCase()) delete u.reset;
       u.email = rec.email.toLowerCase();
     }
     else users[rec.id] = { id: rec.id, role: rec.role, email: rec.email.toLowerCase(), sv: 1, createdAt: new Date().toISOString() };

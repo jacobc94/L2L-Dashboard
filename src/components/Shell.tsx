@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Bell, BookOpen, CalendarDays, CheckSquare, Clock, FileSignature, HeartPulse, Home, LayoutDashboard, LogOut,
-  FlaskConical, Mail, Menu, MessageSquare, Route, Settings, Users, Briefcase, X, Building2,
+  FlaskConical, Mail, Menu, MessageSquare, Route, Settings, Users, Briefcase, X, Building2, FileText,
 } from 'lucide-react';
 import { enterSandbox } from './DemoSandbox';
 import { Avatar, Badge, Logo, SEVERITY_DOT, cx } from './ui';
@@ -18,15 +18,18 @@ export function useNav(): NavItem[] {
   const unreadMsgs = state.messages.filter((m) => ids.has(m.engagementId) && !m.readBy.includes(v.id)).length;
   const i = 'h-[18px] w-[18px]';
   if (v.role === 'client') {
+    const pages = state.clients.find((c) => c.id === v.id)?.portal?.pages ?? [];
+    const label = (id: string, fallback: string) => pages.find((p) => p.id === id)?.title ?? fallback;
     return [
-      { id: 'home', label: 'Home', icon: <Home className={i} /> },
-      { id: 'program', label: 'My Program', icon: <Route className={i} /> },
-      { id: 'sessions', label: 'Sessions & Hours', icon: <CalendarDays className={i} /> },
-      { id: 'contract', label: 'Agreement', icon: <FileSignature className={i} />, badge: myReminders.filter((r) => r.kind === 'contract-reminder').length },
-      { id: 'checkin', label: 'Weekly Check-in', icon: <HeartPulse className={i} />, badge: myReminders.filter((r) => r.kind === 'checkin-reminder').length },
-      { id: 'actions', label: 'Action Items', icon: <CheckSquare className={i} /> },
-      { id: 'messages', label: 'Messages', icon: <MessageSquare className={i} />, badge: unreadMsgs },
-      { id: 'resources', label: 'Resources', icon: <BookOpen className={i} /> },
+      { id: 'home', label: label('home', 'Home'), icon: <Home className={i} /> },
+      { id: 'program', label: label('program', 'My Program'), icon: <Route className={i} /> },
+      { id: 'sessions', label: label('sessions', 'Sessions & Hours'), icon: <CalendarDays className={i} /> },
+      { id: 'contract', label: label('contract', 'Agreement'), icon: <FileSignature className={i} />, badge: myReminders.filter((r) => r.kind === 'contract-reminder').length },
+      { id: 'checkin', label: label('checkin', 'Weekly Check-in'), icon: <HeartPulse className={i} />, badge: myReminders.filter((r) => r.kind === 'checkin-reminder').length },
+      { id: 'actions', label: label('actions', 'Action Items'), icon: <CheckSquare className={i} /> },
+      { id: 'messages', label: label('messages', 'Messages'), icon: <MessageSquare className={i} />, badge: unreadMsgs },
+      { id: 'resources', label: label('resources', 'Resources'), icon: <BookOpen className={i} /> },
+      ...pages.filter((p) => p.id.startsWith('p_')).map((p) => ({ id: `page/${p.id}`, label: p.title, icon: <FileText className={i} /> })),
     ];
   }
   const awaiting = state.checkIns.filter((c) => ids.has(c.engagementId) && !c.coachResponse).length;
@@ -42,6 +45,7 @@ export function useNav(): NavItem[] {
   return [
     ...common,
     { id: 'people', label: 'Clients & Orgs', icon: <Building2 className={i} /> },
+    { id: 'client-pages', label: 'Client pages', icon: <FileText className={i} /> },
     { id: 'team', label: 'L2L Team', icon: <Users className={i} /> },
     { id: 'contracts', label: 'Contracts', icon: <FileSignature className={i} /> },
     { id: 'hours', label: 'Hours & Billing', icon: <Clock className={i} /> },

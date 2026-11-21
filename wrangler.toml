@@ -11,9 +11,9 @@ bucket_name = "l2l-coaching"
 
 [vars]
 # Public URL of the portal — used in invite and reminder emails, e.g. "https://coaching.l2lconsultingteam.com"
-APP_URL = ""
-# Verified Resend sender, e.g. "L2L Coaching <coaching@l2lconsultingteam.com>". Leave blank to disable server email.
-MAIL_FROM = ""
+APP_URL = "https://portal.l2lconsultingteam.com"
+# Verified Resend sender. Leave blank to disable server email.
+MAIL_FROM = "notifications@mail.l2lconsultingteam.com"
 
 # Secrets (never put these in this file) — set with `wrangler pages secret put NAME`:
 #   SESSION_SECRET  random 32+ chars; signs sign-in cookies

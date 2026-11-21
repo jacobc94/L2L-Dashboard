@@ -56,6 +56,7 @@ interface StoreValue {
   signIn: (email: string, code: string) => Promise<string | null>;
   bootstrap: (v: { key: string; name: string; email: string; passcode: string }) => Promise<string | null>;
   join: (v: { email: string; code: string; passcode: string }) => Promise<string | null>;
+  resetPasscode: (v: { email: string; token: string; passcode: string }) => Promise<string | null>;
   signInAs: (role: Role, id: string) => void;
   signOut: () => void;
   mutate: (fn: (draft: AppState) => void) => void;
@@ -251,6 +252,10 @@ export function StoreProvider({ children, initial, initialAuth }: { children: Re
     try { await api('auth/join', { body: v }); await afterAuth(); return null; }
     catch (e) { return e instanceof ApiError ? e.message : 'Could not reach the server.'; }
   };
+  const resetPasscode: StoreValue['resetPasscode'] = async (v) => {
+    try { await api('auth/reset', { body: v }); await afterAuth(); return null; }
+    catch (e) { return e instanceof ApiError ? e.message : 'Could not reach the server.'; }
+  };
 
   const signOut = () => {
     if (modeRef.current === 'cloud') {
@@ -277,7 +282,7 @@ export function StoreProvider({ children, initial, initialAuth }: { children: Re
     mode, state, auth: me ? auth : null, me,
     isStaff: auth?.role === 'admin' || auth?.role === 'coach',
     isAdmin, configProblems, needsBootstrap, canEmail,
-    signIn, bootstrap, join,
+    signIn, bootstrap, join, resetPasscode,
     signInAs: (role, id) => persistDemoAuth({ role, id }),
     signOut, mutate,
     resetDemo: () => setState(buildSeed()),

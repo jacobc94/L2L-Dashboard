@@ -30,6 +30,7 @@ export function sliceFor(raw: AppState, user: SessionUser): AppState {
     const inMine = <T extends { engagementId: string }>(rows: T[]) => rows.filter((r) => ids.has(r.engagementId));
     return {
       ...full,
+      clients: full.clients.map((c) => mine.some((e) => e.clientIds.includes(c.id)) ? c : { ...c, portal: undefined }),
       engagements: mine,
       preTasks: inMine(full.preTasks), contracts: inMine(full.contracts), sessions: inMine(full.sessions),
       checkIns: inMine(full.checkIns), actions: inMine(full.actions), messages: inMine(full.messages),

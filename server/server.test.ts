@@ -219,6 +219,51 @@ describe('client writes', () => {
     expect((await maria.state()).sessions.find((x) => x.id === s.id)!.status).toBe('scheduled');
   });
 
+  describe('client page customization', () => {
+    it('lets only admins configure pages and keeps layouts scoped to the intended client', async () => {
+      const admin = await as(ADMIN);
+      const portal = {
+        pages: [{ id: 'p_custom', title: 'Private page', sections: [{ id: 'sec_1', type: 'text' as const, heading: 'Hello', text: 'Private content' }] }],
+        checkInQuestions: [{ id: 'q_test', label: 'How did it go?', required: true }],
+        checkInLabels: { wins: 'What did you accomplish?' },
+      };
+      expect((await admin.edit((d) => { d.clients.find((c) => c.id === 'c_priya')!.portal = portal; })).status).toBe(200);
+      expect((await (await as(PRIYA)).state()).clients.find((c) => c.id === 'c_priya')!.portal).toEqual(portal);
+      expect((await (await as(TOM)).state()).clients.find((c) => c.id === 'c_priya')!.portal).toBeUndefined();
+      expect((await (await as(COACH)).state()).clients.find((c) => c.id === 'c_priya')!.portal).toEqual(portal);
+      expect((await (await as(COACH)).edit((d) => { d.clients.find((c) => c.id === 'c_priya')!.portal = undefined; })).status).toBe(403);
+      expect((await (await as(PRIYA)).edit((d) => { d.clients.find((c) => c.id === 'c_priya')!.portal = undefined; })).status).toBe(403);
+      expect((await admin.edit((d) => { d.clients.find((c) => c.id === 'c_priya')!.title = 'Updated'; })).status).toBe(200);
+      expect((await admin.state()).clients.find((c) => c.id === 'c_priya')!.portal).toEqual(portal);
+      expect((await admin.edit((d) => { d.clients.find((c) => c.id === 'c_priya')!.portal!.pages[0].id = 'profile'; })).status).toBe(403);
+    });
+
+    it('validates custom answers and preserves their questions when configuration changes', async () => {
+      const admin = await as(ADMIN);
+      const maria = await as(MARIA);
+      expect((await admin.edit((d) => {
+        d.clients.find((c) => c.id === 'c_maria')!.portal = {
+          pages: [], checkInQuestions: [{ id: 'q_one', label: 'Original question?', required: true }],
+          checkInLabels: { wins: 'Original wins prompt?' },
+        };
+      })).status).toBe(200);
+      const base = { engagementId: 'e_maria', clientId: 'c_maria', energy: 4, progress: 4, wins: 'w', challenges: '', focusNext: '', supportNeeded: '', questionLabels: { wins: 'Original wins prompt?' } };
+      expect((await maria.edit((d) => act.submitCheckIn(d, base))).status).toBe(403);
+      expect((await maria.edit((d) => act.submitCheckIn(d, { ...base, answers: [{ id: 'q_one', question: 'Forged?', answer: 'yes' }] }))).status).toBe(403);
+      expect((await maria.edit((d) => act.submitCheckIn(d, { ...base, answers: [{ id: 'q_one', question: 'Original question?', answer: 'yes' }] }))).status).toBe(200);
+      expect((await admin.edit((d) => {
+        const portal = d.clients.find((c) => c.id === 'c_maria')!.portal!;
+        portal.checkInLabels = { wins: 'New wins prompt?' };
+        portal.checkInQuestions = [];
+      })).status).toBe(200);
+      expect((await maria.edit((d) => { d.checkIns.find((c) => c.weekOf === '2026-11-02')!.wins = 'updated'; })).status).toBe(200);
+      const record = (await maria.state()).checkIns.find((c) => c.weekOf === '2026-11-02')!;
+      expect(record.questionLabels).toEqual({ wins: 'Original wins prompt?' });
+      expect(record.answers).toEqual([{ id: 'q_one', question: 'Original question?', answer: 'yes' }]);
+      expect((await maria.edit((d) => { d.checkIns.find((c) => c.weekOf === '2026-11-02')!.answers = []; })).status).toBe(403);
+    });
+  });
+
   it('cannot book outside availability, inside the notice window, over another booking, or with a different coach', async () => {
     const maria = await as(MARIA);
     const book = (start: string, coachId = 'st_lynne') => maria.edit((d) => act.bookSession(d, { engagementId: 'e_maria', coachId, type: 'Coaching Session', mode: 'Zoom', start, durationMin: 60, requestedBy: 'client' }));
@@ -511,6 +556,77 @@ describe('email', () => {
     const lynne = await as(ADMIN);
     await lynne.edit((d) => d.outbox.push({ id: 'em_1', kind: 'custom', toName: 'Maria', toEmail: MARIA, subject: 's', body: 'b', createdAt: 'x', status: 'queued' }));
     expect((await lynne.call('email/send', { body: { ids: ['em_1'] } })).status).toBe(503);
+  });
+
+  describe('self-service passcode reset', () => {
+    const configured = () => { env.RESEND_API_KEY = 're_test'; env.MAIL_FROM = 'notifications@mail.l2lconsultingteam.com'; };
+    const request = (email: string) => new Session().call('auth/request-reset', { body: { email } });
+    const tokenFrom = (init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as { text: string };
+      const link = body.text.split('\n').find((line) => line.startsWith(ORIGIN + '/#/reset?'))!;
+      return new URLSearchParams(new URL(link).hash.split('?')[1]).get('token')!;
+    };
+
+    it('emails a single-use link, changes the passcode, and invalidates existing sessions', async () => {
+      configured();
+      const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+      const old = await as(MARIA);
+      expect((await request(MARIA)).status).toBe(200);
+      const token = tokenFrom(spy.mock.calls[0][1]!);
+      const sent = JSON.parse(spy.mock.calls[0][1]!.body as string);
+      expect(sent.from).toBe('notifications@mail.l2lconsultingteam.com');
+      expect(spy.mock.calls[0][1]!.headers).toMatchObject({ Authorization: 'Bearer re_test' });
+      expect((await new Session().login(MARIA)).status).toBe(200);
+      expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(bucket.files.get('users.json')!.text).not.toContain(token);
+      const reset = new Session();
+      expect((await reset.call('auth/reset', { body: { email: MARIA, token, passcode: 'new passcode 123' } })).status).toBe(200);
+      expect((await reset.call('state')).status).toBe(200);
+      expect((await old.call('state')).status).toBe(401);
+      expect((await new Session().login(MARIA, 'new passcode 123')).status).toBe(200);
+      expect((await new Session().call('auth/reset', { body: { email: MARIA, token, passcode: 'another passcode 123' } })).status).toBe(400);
+    });
+
+    it('gives the same response for unknown accounts and provider failures', async () => {
+      configured();
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"message":"rejected"}', { status: 403 }));
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const known = await request(MARIA);
+      const unknown = await request('unknown@example.com');
+      expect(known.status).toBe(200);
+      expect(unknown.status).toBe(200);
+      expect(known.json).toEqual(unknown.json);
+      expect(log).toHaveBeenCalled();
+      expect((await new Session().login(MARIA)).status).toBe(200);
+    });
+
+    it('rejects expired links and invalidates reset links on a passcode change', async () => {
+      configured();
+      const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+      await request(MARIA);
+      const expired = tokenFrom(spy.mock.calls[0][1]!);
+      vi.setSystemTime(new Date(NOW.getTime() + 60 * 60_000));
+      expect((await new Session().call('auth/reset', { body: { email: MARIA, token: expired, passcode: 'new passcode 123' } })).status).toBe(400);
+      spy.mockClear();
+      await request(MARIA);
+      const token = tokenFrom(spy.mock.calls[0][1]!);
+      const user = await as(MARIA);
+      expect((await user.call('auth/change-passcode', { body: { current: PASS, next: 'different passcode' } })).status).toBe(200);
+      expect((await new Session().call('auth/reset', { body: { email: MARIA, token, passcode: 'new passcode 123' } })).status).toBe(400);
+    });
+
+    it('requires configured mail and a trusted public URL and rate limits requests', async () => {
+      expect((await request(MARIA)).status).toBe(503);
+      configured();
+      env.APP_URL = '';
+      expect((await request(MARIA)).status).toBe(503);
+      env.APP_URL = 'https://attacker.example/#fragment';
+      expect((await request(MARIA)).status).toBe(503);
+      env.APP_URL = ORIGIN;
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+      for (let i = 0; i < 3; i++) expect((await request(MARIA)).status).toBe(200);
+      expect((await request(MARIA)).status).toBe(429);
+    });
   });
 
   it('sends queued mail through Resend, only to known people, and marks it sent', async () => {

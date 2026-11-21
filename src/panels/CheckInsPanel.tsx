@@ -7,6 +7,7 @@ import { CheckIn, Engagement } from '../types';
 import { fmtDate, todayIso, weekStart } from '../utils/dates';
 import { respondCheckIn, submitCheckIn } from '../utils/actions';
 import { checkInOpenDate } from '../utils/reminders';
+import { CHECK_IN_LABELS } from '../utils/portal';
 
 export function CheckInsPanel({ engagement }: { engagement: Engagement }) {
   const { state } = useStore();
@@ -78,8 +79,11 @@ export function CheckInRow({ c, showName }: { c: CheckIn; showName: boolean }) {
         <Badge tone="crimson">Progress {c.progress}/5</Badge>
       </div>
       <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-        {([['Wins', c.wins], ['Challenges', c.challenges], ['Focus this week', c.focusNext], ['Support needed', c.supportNeeded]] as const).filter(([, t]) => t).map(([k, t]) => (
-          <div key={k}><dt className="text-[11px] font-bold uppercase tracking-wide text-brand-400">{k}</dt><dd className="text-brand-700">{t}</dd></div>
+        {([[c.questionLabels?.wins ?? 'Wins', c.wins], [c.questionLabels?.challenges ?? 'Challenges', c.challenges], [c.questionLabels?.focusNext ?? 'Focus this week', c.focusNext], [c.questionLabels?.supportNeeded ?? 'Support needed', c.supportNeeded]] as const).filter(([, t]) => t).map(([k, t], i) => (
+          <div key={i}><dt className="text-[11px] font-bold uppercase tracking-wide text-brand-400">{k}</dt><dd className="text-brand-700">{t}</dd></div>
+        ))}
+        {c.answers?.filter((a) => a.answer).map((a) => (
+          <div key={a.id}><dt className="text-[11px] font-bold uppercase tracking-wide text-brand-400">{a.question}</dt><dd className="whitespace-pre-wrap text-brand-700">{a.answer}</dd></div>
         ))}
       </dl>
       {c.coachResponse ? (
@@ -95,16 +99,20 @@ export function CheckInRow({ c, showName }: { c: CheckIn; showName: boolean }) {
 }
 
 function CheckInForm({ engagement, existing, open }: { engagement: Engagement; existing?: CheckIn; open: boolean }) {
-  const { mutate } = useStore();
+  const { mutate, state } = useStore();
   const v = useViewer();
+  const questions = state.clients.find((c) => c.id === v.id)?.portal?.checkInQuestions ?? [];
+  const configuredLabels = state.clients.find((c) => c.id === v.id)?.portal?.checkInLabels;
+  const labels = existing ? existing.questionLabels : configuredLabels;
   const [energy, setEnergy] = React.useState(existing?.energy ?? 0);
   const [progress, setProgress] = React.useState(existing?.progress ?? 0);
   const [wins, setWins] = React.useState(existing?.wins ?? '');
   const [challenges, setChallenges] = React.useState(existing?.challenges ?? '');
   const [focusNext, setFocusNext] = React.useState(existing?.focusNext ?? '');
   const [support, setSupport] = React.useState(existing?.supportNeeded ?? '');
+  const [answers, setAnswers] = React.useState<Record<string, string>>(() => Object.fromEntries((existing?.answers ?? []).map((a) => [a.id, a.answer])));
   const [saved, setSaved] = React.useState(false);
-  const valid = energy > 0 && progress > 0 && wins.trim().length > 0;
+  const valid = energy > 0 && progress > 0 && wins.trim().length > 0 && questions.every((q) => !q.required || (answers[q.id] ?? '').trim().length > 0);
 
   if (!open && !existing) {
     return <Card className="p-5 text-sm text-brand-500">Your weekly check-in opens {fmtDate(checkInOpenDate(engagement.checkInDay), { weekday: 'long', month: 'short', day: 'numeric' })}.</Card>;
@@ -112,18 +120,29 @@ function CheckInForm({ engagement, existing, open }: { engagement: Engagement; e
   return (
     <Card>
       <CardHeader title={existing ? 'This week\'s check-in' : 'Weekly check-in'} subtitle={existing ? 'Submitted — you can update it until your coach replies.' : 'About three minutes. Your coach reads every one.'} icon={<HeartPulse className="h-5 w-5" />} action={existing && <Badge tone="green">Submitted</Badge>} />
-      <form className="space-y-5 p-5" onSubmit={(e) => { e.preventDefault(); if (!valid) return; mutate((d) => submitCheckIn(d, { engagementId: engagement.id, clientId: v.id, energy, progress, wins, challenges, focusNext, supportNeeded: support })); setSaved(true); setTimeout(() => setSaved(false), 4000); }}>
+      <form className="space-y-5 p-5" onSubmit={(e) => {
+        e.preventDefault();
+        if (!valid) return;
+        const previous = existing?.answers ?? [];
+        const custom = [
+          ...previous.filter((a) => !questions.some((q) => q.id === a.id)),
+          ...questions.map((q) => ({ id: q.id, question: previous.find((a) => a.id === q.id)?.question ?? q.label, answer: answers[q.id] ?? '' })),
+        ];
+        mutate((d) => submitCheckIn(d, { engagementId: engagement.id, clientId: v.id, energy, progress, wins, challenges, focusNext, supportNeeded: support, ...(custom.length ? { answers: custom } : {}), ...(!existing && labels ? { questionLabels: labels } : {}) }));
+        setSaved(true); setTimeout(() => setSaved(false), 4000);
+      }}>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="My energy this week"><Scale value={energy} onChange={setEnergy} labels={['Drained', 'Energized']} /></Field>
           <Field label="Progress toward my goals"><Scale value={progress} onChange={setProgress} labels={['Stuck', 'Moving fast']} /></Field>
         </div>
-        <Field label="Wins — what went well?"><Textarea value={wins} onChange={(e) => setWins(e.target.value)} placeholder="Even small ones count" /></Field>
-        <Field label="Challenges — what got in the way?"><Textarea value={challenges} onChange={(e) => setChallenges(e.target.value)} /></Field>
-        <Field label="My focus for the coming week"><Textarea rows={2} value={focusNext} onChange={(e) => setFocusNext(e.target.value)} /></Field>
-        <Field label="Support I'd like from my coach (optional)"><Textarea rows={2} value={support} onChange={(e) => setSupport(e.target.value)} /></Field>
+        <Field label={labels?.wins ?? CHECK_IN_LABELS.wins}><Textarea value={wins} onChange={(e) => setWins(e.target.value)} placeholder="Even small ones count" /></Field>
+        <Field label={labels?.challenges ?? CHECK_IN_LABELS.challenges}><Textarea value={challenges} onChange={(e) => setChallenges(e.target.value)} /></Field>
+        <Field label={labels?.focusNext ?? CHECK_IN_LABELS.focusNext}><Textarea rows={2} value={focusNext} onChange={(e) => setFocusNext(e.target.value)} /></Field>
+        <Field label={labels?.supportNeeded ?? CHECK_IN_LABELS.supportNeeded}><Textarea rows={2} value={support} onChange={(e) => setSupport(e.target.value)} /></Field>
+        {questions.map((q) => <Field key={q.id} label={`${existing?.answers?.find((a) => a.id === q.id)?.question ?? q.label}${q.required ? ' (required)' : ' (optional)'}`}><Textarea maxLength={3000} value={answers[q.id] ?? ''} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} /></Field>)}
         <div className="flex items-center gap-3">
           <Btn type="submit" variant="accent" disabled={!valid} icon={<Send className="h-4 w-4" />}>{existing ? 'Update check-in' : 'Submit check-in'}</Btn>
-          {!valid && <span className="text-xs text-brand-400">Rate your energy and progress and add at least one win.</span>}
+          {!valid && <span className="text-xs text-brand-400">Complete the ratings, a win, and any required questions.</span>}
           <span className={cx('text-sm font-semibold text-emerald-700 transition', saved ? 'opacity-100' : 'opacity-0')} role="status">{saved ? 'Saved — thank you!' : ''}</span>
         </div>
       </form>

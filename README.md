@@ -35,15 +35,19 @@ You said you'll create the bucket — here's everything else.
    npx wrangler pages secret put CRON_SECRET   --project-name l2l-dashboard     # random string, shared with the cron worker
    npx wrangler pages secret put RESEND_API_KEY --project-name l2l-dashboard    # only if you want server-sent email
    ```
-   and fill in `APP_URL` (your portal's public URL) and `MAIL_FROM` (a Resend-verified sender) in `wrangler.toml`, then redeploy.
+   and fill in `APP_URL` (your portal's public HTTPS URL) in `wrangler.toml`, then redeploy. Self-service reset emails
+   require this configured URL; they do not use the incoming request's host. `MAIL_FROM` is set to
+   `notifications@mail.l2lconsultingteam.com`; the sending domain must be verified in Resend.
 4. **Create the first admin:** open the site — it shows *First-time setup*. Enter the `BOOTSTRAP_KEY`, your name, email and a passcode.
    That form disappears for good once an admin exists; you can delete `BOOTSTRAP_KEY` afterward.
 5. **Add people:** *Clients & Orgs* → add organizations and clients; *L2L Team* → add coaches/admins. Press **Invite** on a person to
    get a one-time code and link (or **Create & email it** if email is set up). They choose their own passcode; you never see it.
    A coach leaving? *L2L Team → Remove…* hands their clients to someone else.
-6. **Email (optional):** verify your sending domain in Resend, set `RESEND_API_KEY` + `MAIL_FROM`. The *Reminders & Email* page then shows
+6. **Email (optional):** verify `mail.l2lconsultingteam.com` in Resend and set `RESEND_API_KEY` as a Cloudflare Pages secret.
+   The *Reminders & Email* page then shows
    **Send** buttons. For hands-off reminders, deploy [`cron-worker/`](cron-worker) (hourly; set its `PORTAL_URL` and the same `CRON_SECRET`) and
    turn on *Send due reminders automatically* in Settings. Until then everything still works — emails just wait in the outbox for a person to send.
+   This is outbound-only; no inbound email or forwarding is configured.
 7. **Recommended:** add a Cloudflare WAF *rate-limiting rule* on `/api/auth/*` (the server also locks an account for 15 minutes after 5 bad
    passcodes), use a custom domain, and put the Pages project behind Cloudflare Access too if you want a second gate for staff.
 
@@ -73,6 +77,9 @@ and the same error for unknown email vs wrong passcode. Changing a passcode (or 
 - **Scheduling**: coaches set weekly availability; clients can only book real open slots (checked again on the server, across all of that coach's engagements). Bookings are *requests* until confirmed (configurable). `.ics` / Google Calendar per session.
 - **Reminders** are derived from live data, so they clear themselves. *Scan* queues the due ones as emails once each; the weekly digest goes out on the weekday you choose in Settings.
 - **Business timezone** (Settings): every session time means that zone, whatever device or server is looking at it.
+- **Client pages**: admins can use *Client pages* to create client-specific pages, reorder text and existing functional
+  page blocks, and customize check-in text prompts and additional questions. Existing pages stay unchanged until edited;
+  restoring a default page does not delete submissions. The original pages are whole blocks, not a free-form visual editor.
 
 ## Honest limits
 
@@ -83,6 +90,7 @@ and the same error for unknown email vs wrong passcode. Changing a passcode (or 
   but a heavy multi-user workload or hundreds of engagements would be better on D1. Fine for a coaching practice's scale; it re-reads all
   engagements on each poll (every 30s while a tab is open and visible).
 - **R2 has no point-in-time restore.** Use *Settings → Download full backup* on a schedule.
-- **Passcode reset is admin-mediated** (a new invite) — there's no self-service "forgot passcode" email flow yet.
+- **Passcode reset emails** require Resend and the configured public `APP_URL`. Reset links expire after one hour and
+  can be used once; the sign-in page does not disclose whether an email belongs to an account.
 - **Contract terms are starter text, not legal advice.** Have counsel review them (*Settings*); a typed-name e-signature may not meet your needs.
 - The L2L site publishes no pricing, packages or durations, so fees/hours in the demo data are placeholders.

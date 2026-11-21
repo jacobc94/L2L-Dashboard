@@ -1,6 +1,6 @@
 import { STATE_VERSION } from '../src/data/seed';
 import { nowIso, setBusinessTimezone } from '../src/utils/dates';
-import { changePasscode, bootstrap, getSession, invite, join, login, logout, requireUser, status } from './auth';
+import { changePasscode, bootstrap, getSession, invite, join, login, logout, requestReset, resetPasscode, requireUser, status } from './auth';
 import { sha256 } from './crypto';
 import { bucketOf, db, loadFullState } from './db';
 import { cron, sendQueued } from './email';
@@ -23,6 +23,8 @@ export async function handle(request: Request, env: Env): Promise<Response> {
       case 'auth/logout': need('POST'); return await logout(request);
       case 'auth/join': need('POST'); return await join(request, env);
       case 'auth/invite': need('POST'); return await invite(request, env, await requireUser(request, env));
+      case 'auth/request-reset': need('POST'); return await requestReset(request, env);
+      case 'auth/reset': need('POST'); return await resetPasscode(request, env);
       case 'auth/change-passcode': need('POST'); return await changePasscode(request, env, await requireUser(request, env));
       case 'cron/run': need('POST'); return await cron(request, env);
 

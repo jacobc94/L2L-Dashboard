@@ -46,6 +46,7 @@ export interface UserCred {
   iters?: number;
   /** One-time invite code (hashed) */
   invite?: { hash: string; salt: string; iters: number; expires: string };
+  reset?: { hash: string; expires: string };
   /** Bumped on passcode change so older cookies stop working */
   sv: number;
   createdAt: string;

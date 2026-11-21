@@ -2,31 +2,35 @@ import React from 'react';
 import { AlertTriangle, ArrowRight, Info, KeyRound, Lock, ShieldCheck } from 'lucide-react';
 import { Btn, Field, Input, Logo } from './ui';
 import { useStore } from '../store';
+import { api, ApiError } from '../api';
 
-type View = 'signin' | 'join' | 'setup';
+type View = 'signin' | 'join' | 'setup' | 'request-reset' | 'reset';
 
-function parseJoinHash() {
+function parseAccessHash() {
   const q = window.location.hash.split('?')[1] ?? '';
   const p = new URLSearchParams(q);
-  return window.location.hash.startsWith('#/join') ? { email: p.get('email') ?? '', code: p.get('code') ?? '' } : null;
+  if (window.location.hash.startsWith('#/join')) return { kind: 'join' as const, email: p.get('email') ?? '', code: p.get('code') ?? '' };
+  if (window.location.hash.startsWith('#/reset')) return { kind: 'reset' as const, email: p.get('email') ?? '', code: p.get('token') ?? '' };
+  return null;
 }
 
 export function Login() {
-  const { mode, signIn, signInAs, bootstrap, join, state, needsBootstrap } = useStore();
-  const preset = React.useMemo(parseJoinHash, []);
-  const [view, setView] = React.useState<View>(preset ? 'join' : needsBootstrap ? 'setup' : 'signin');
+  const { mode, signIn, signInAs, bootstrap, join, resetPasscode, state, needsBootstrap } = useStore();
+  const preset = React.useMemo(parseAccessHash, []);
+  const [view, setView] = React.useState<View>(preset?.kind ?? (needsBootstrap ? 'setup' : 'signin'));
   const [email, setEmail] = React.useState(preset?.email ?? '');
   const [code, setCode] = React.useState('');
-  const [invite, setInvite] = React.useState(preset?.code ?? '');
+  const [invite, setInvite] = React.useState(preset?.kind === 'join' ? preset.code : '');
+  const [resetToken] = React.useState(preset?.kind === 'reset' ? preset.code : '');
   const [pass2, setPass2] = React.useState('');
   const [name, setName] = React.useState('');
   const [key, setKey] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [requested, setRequested] = React.useState(false);
   const cloud = mode === 'cloud';
 
   React.useEffect(() => { if (needsBootstrap && view === 'signin') setView('setup'); }, [needsBootstrap, view]);
-
   const finish = (err: string | null) => {
     setBusy(false);
     setError(err);
@@ -36,10 +40,16 @@ export function Login() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (view !== 'signin' && code !== pass2) { setError('The two passcodes don\'t match.'); return; }
+    if (view !== 'signin' && view !== 'request-reset' && code !== pass2) { setError('The two passcodes don\'t match.'); return; }
     setBusy(true);
     if (view === 'signin') finish(await signIn(email, code));
     else if (view === 'join') finish(await join({ email, code: invite, passcode: code }));
+    else if (view === 'reset') finish(await resetPasscode({ email, token: resetToken, passcode: code }));
+    else if (view === 'request-reset') {
+      try { await api('auth/request-reset', { body: { email } }); setRequested(true); }
+      catch (err) { setError(err instanceof ApiError ? err.message : 'Could not reach the server.'); }
+      setBusy(false);
+    }
     else finish(await bootstrap({ key, name, email, passcode: code }));
   };
 
@@ -57,9 +67,11 @@ export function Login() {
     </div>
   );
 
-  const heading = view === 'signin' ? 'Sign in' : view === 'join' ? 'Join the portal' : 'First-time setup';
+  const heading = view === 'signin' ? 'Sign in' : view === 'join' ? 'Join the portal' : view === 'setup' ? 'First-time setup' : view === 'reset' ? 'Choose a new passcode' : 'Reset your passcode';
   const sub = view === 'signin' ? 'Clients, coaches and L2L admins use the same door.'
     : view === 'join' ? 'Enter the invite code you were sent and choose your own passcode.'
+    : view === 'request-reset' ? 'Enter your email and we’ll send a reset link if an account exists.'
+    : view === 'reset' ? 'Choose a new passcode for your account.'
     : 'Create the first admin account. You\'ll need the setup key stored as a secret on the server.';
 
   return (
@@ -86,7 +98,9 @@ export function Login() {
           <div className="mb-8 lg:hidden"><Logo className="h-10" /></div>
           <h2 className="font-display text-2xl font-extrabold">{cloud ? heading : 'Sign in'}</h2>
           <p className="mt-1 text-sm text-brand-500">{cloud ? sub : 'Clients, coaches and L2L admins use the same door.'}</p>
-          <form onSubmit={submit} className="mt-6 space-y-4">
+          {requested && view === 'request-reset' ? (
+            <p role="status" className="mt-6 rounded-lg bg-brand-50 p-4 text-sm text-brand-700">If an account exists for that email, we’ll attempt to send a reset link. If it doesn’t arrive, contact an administrator.</p>
+          ) : <form onSubmit={submit} className="mt-6 space-y-4">
             {view === 'setup' && (
               <>
                 <Field label="Setup key"><Input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" required /></Field>
@@ -95,21 +109,21 @@ export function Login() {
             )}
             <Field label="Email"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
             {view === 'join' && <Field label="Invite code"><Input value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="one-time-code" className="font-mono tracking-wider" required /></Field>}
-            <Field label={view === 'signin' ? (cloud ? 'Passcode' : 'Access code') : 'Choose a passcode'} hint={view !== 'signin' ? 'At least 10 characters. A few random words works well.' : undefined}>
+            {view !== 'request-reset' && <Field label={view === 'signin' ? (cloud ? 'Passcode' : 'Access code') : 'Choose a passcode'} hint={view !== 'signin' ? 'At least 10 characters. A few random words works well.' : undefined}>
               <Input type="password" autoComplete={view === 'signin' ? 'current-password' : 'new-password'} value={code} onChange={(e) => setCode(e.target.value)} required />
-            </Field>
-            {view !== 'signin' && <Field label="Confirm passcode"><Input type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} required /></Field>}
+            </Field>}
+            {view !== 'signin' && view !== 'request-reset' && <Field label="Confirm passcode"><Input type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} required /></Field>}
             {error && <p role="alert" className="rounded-lg bg-crimson-50 p-3 text-sm font-semibold text-crimson-700">{error}</p>}
             <Btn type="submit" variant="accent" className="w-full" disabled={busy} icon={view === 'signin' ? <Lock className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}>
-              {busy ? 'One moment…' : view === 'signin' ? 'Sign in' : view === 'join' ? 'Create my account' : 'Create admin account'}
+              {busy ? 'One moment…' : view === 'signin' ? 'Sign in' : view === 'join' ? 'Create my account' : view === 'setup' ? 'Create admin account' : view === 'reset' ? 'Reset passcode' : 'Send reset link'}
             </Btn>
-          </form>
+          </form>}
 
           {cloud && (
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              {view !== 'signin' && !needsBootstrap && <button className="font-bold text-crimson-700 hover:underline" onClick={() => { setView('signin'); setError(null); }}>Back to sign in</button>}
+              {view !== 'signin' && !needsBootstrap && <button className="font-bold text-crimson-700 hover:underline" onClick={() => { window.location.hash = ''; setView('signin'); setError(null); setRequested(false); }}>Back to sign in</button>}
               {view === 'signin' && <button className="font-bold text-crimson-700 hover:underline" onClick={() => { setView('join'); setError(null); }}>Join with an invite code</button>}
-              {view === 'signin' && <span className="text-brand-400">Forgot your passcode? Ask your coach for a new invite.</span>}
+              {view === 'signin' && <button className="font-bold text-crimson-700 hover:underline" onClick={() => { setView('request-reset'); setError(null); }}>Forgot your passcode?</button>}
             </div>
           )}
 

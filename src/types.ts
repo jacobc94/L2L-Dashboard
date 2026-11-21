@@ -42,7 +42,35 @@ export interface Client {
   accessCode?: string;
   /** Admin view only: has this person set a passcode yet? */
   joined?: boolean;
+  portal?: ClientPortal;
 }
+
+export interface PortalSection {
+  id: string;
+  type: 'original' | 'text' | 'checkin' | 'sessions' | 'contract' | 'actions' | 'messages' | 'program' | 'resources';
+  heading?: string;
+  text?: string;
+}
+
+export interface PortalPage {
+  id: string;
+  title: string;
+  sections: PortalSection[];
+}
+
+export interface CheckInQuestion {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface ClientPortal {
+  pages: PortalPage[];
+  checkInQuestions: CheckInQuestion[];
+  checkInLabels?: Partial<Record<CheckInTextField, string>>;
+}
+
+export type CheckInTextField = 'wins' | 'challenges' | 'focusNext' | 'supportNeeded';
 
 export type EngagementType = 'Executive Coaching' | 'Team Coaching' | 'Leadership Cohort';
 export type EngagementStatus = 'Pre-program' | 'Active' | 'Paused' | 'Completed';
@@ -185,6 +213,8 @@ export interface CheckIn {
   submittedAt: string;
   coachResponse?: string;
   respondedAt?: string;
+  answers?: Array<{ id: string; question: string; answer: string }>;
+  questionLabels?: Partial<Record<CheckInTextField, string>>;
 }
 
 export interface ActionItem {
