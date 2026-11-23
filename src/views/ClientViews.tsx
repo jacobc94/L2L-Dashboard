@@ -37,6 +37,7 @@ export function ClientHome() {
   const dir = useDirectory();
   const e = useClientCtx();
   const [booking, setBooking] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(null);
   if (!e) return <><PageHeader title={`Welcome, ${v.name.split(' ')[0]}`} /><NoProgram /></>;
 
   const coach = dir.staff(e.coachId)!;
@@ -59,6 +60,13 @@ export function ClientHome() {
         subtitle={<>{e.title} · coached by <b>{coach.name}</b></>}
         actions={<Badge tone={e.status === 'Active' ? 'green' : e.status === 'Pre-program' ? 'amber' : 'blue'}>{STATUS_LABEL[e.status]}</Badge>}
       />
+
+      {notice && (
+        <div role="status" className="mb-5 flex items-start justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">
+          <span>{notice}</span>
+          <button type="button" className="shrink-0 font-bold underline" onClick={() => setNotice(null)}>Dismiss</button>
+        </div>
+      )}
 
       {e.status === 'Pre-program' && (
         <Card className="mb-5 border-amber-200 bg-amber-50/60 p-5">
@@ -151,7 +159,7 @@ export function ClientHome() {
           )}
         </div>
       </div>
-      {booking && <BookingModal engagement={e} onClose={() => setBooking(false)} />}
+      {booking && <BookingModal engagement={e} onClose={() => setBooking(false)} onDone={setNotice} />}
     </>
   );
 }

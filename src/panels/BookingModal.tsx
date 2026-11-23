@@ -27,6 +27,7 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
   const [custom, setCustom] = React.useState(false);
   const [customVal, setCustomVal] = React.useState('');
   const [day, setDay] = React.useState<string>('');
+  const [details, setDetails] = React.useState(false);
 
   // Existing session shouldn't block its own slot while rescheduling
   const others = React.useMemo(() => state.sessions.filter((s) => s.id !== existing?.id), [state.sessions, existing]);
@@ -40,6 +41,9 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
   const chosen = custom ? customVal : slot;
   const types = v.isStaff ? STAFF_TYPES : CLIENT_TYPES.filter((t) => t !== 'Kickoff' || engagement.status === 'Pre-program');
   const approval = v.role === 'client' && state.settings.requireApproval;
+  const simple = v.role === 'client';
+  const coachFirst = coach.name.split(' ')[0];
+  const lengthLabel = duration >= 60 ? `${fmtHours(duration / 60)} hr` : `${duration} min`;
 
   const confirm = () => {
     if (!chosen) return;
@@ -47,13 +51,13 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
     mutate((d) => {
       if (existing) {
         rescheduleSession(d, existing.id, chosen, v.role);
-        msg = approval ? 'New time requested — your coach will confirm.' : 'Session moved.';
+        msg = approval ? `New time requested. ${coachFirst} will confirm before it's on your calendar.` : 'Session moved.';
       } else {
         bookSession(d, {
           engagementId: engagement.id, coachId: coach.id, type, mode, start: chosen, durationMin: duration,
           location: mode === 'On-site' ? location || undefined : undefined, requestedBy: v.role === 'client' ? 'client' : 'coach',
         });
-        msg = approval ? `Request sent — ${coach.name.split(' ')[0]} will confirm it.` : 'Session booked.';
+        msg = approval ? `Request sent. ${coachFirst} will confirm before it's on your calendar.` : 'Session booked.';
       }
     });
     onDone?.(msg);
@@ -74,29 +78,39 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-3">
-        {!existing && (
-          <Field label="Session type">
-            <Select value={type} onChange={(e) => { const t = e.target.value as SessionType; setType(t); setDuration(DEFAULT_MIN[t] ?? state.settings.defaultSessionMinutes); setSlot(''); }}>
-              {types.map((t) => <option key={t}>{t}</option>)}
-            </Select>
-          </Field>
-        )}
-        <Field label="Length">
-          <Select value={duration} onChange={(e) => { setDuration(Number(e.target.value)); setSlot(''); }}>
-            {[30, 45, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m >= 60 ? `${fmtHours(m / 60)} hr` : `${m} min`}</option>)}
-          </Select>
-        </Field>
-        {!existing && (
-          <Field label="Format">
-            <Select value={mode} onChange={(e) => setMode(e.target.value as SessionMode)}>
-              <option>Zoom</option><option>Phone</option><option>On-site</option>
-            </Select>
-          </Field>
-        )}
-      </div>
-      {mode === 'On-site' && !existing && (
-        <Field label="Location" className="mt-3"><Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Address or room" /></Field>
+      {simple && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm">
+          <p className="text-brand-700">{existing ? <><b>{lengthLabel}</b> session</> : <><b>{type}</b> · {lengthLabel} · {mode}</>}</p>
+          <button type="button" className="font-bold text-crimson-700 hover:underline" onClick={() => setDetails((d) => !d)}>{details ? 'Hide details' : 'Change details'}</button>
+        </div>
+      )}
+      {(!simple || details) && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {!existing && (
+              <Field label="Session type">
+                <Select value={type} onChange={(e) => { const t = e.target.value as SessionType; setType(t); setDuration(DEFAULT_MIN[t] ?? state.settings.defaultSessionMinutes); setSlot(''); }}>
+                  {types.map((t) => <option key={t}>{t}</option>)}
+                </Select>
+              </Field>
+            )}
+            <Field label="Length">
+              <Select value={duration} onChange={(e) => { setDuration(Number(e.target.value)); setSlot(''); }}>
+                {[30, 45, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m >= 60 ? `${fmtHours(m / 60)} hr` : `${m} min`}</option>)}
+              </Select>
+            </Field>
+            {!existing && (
+              <Field label="Format">
+                <Select value={mode} onChange={(e) => setMode(e.target.value as SessionMode)}>
+                  <option>Zoom</option><option>Phone</option><option>On-site</option>
+                </Select>
+              </Field>
+            )}
+          </div>
+          {mode === 'On-site' && !existing && (
+            <Field label="Location" className="mt-3"><Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Address or room" /></Field>
+          )}
+        </>
       )}
 
       {over && (
@@ -107,7 +121,7 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
       )}
 
       <div className="mt-5 flex items-center justify-between">
-        <h4 className="font-display text-sm font-bold">Pick a time with {coach.name.split(' ')[0]}</h4>
+        <h4 className="font-display text-sm font-bold">Pick a time with {coachFirst}</h4>
         <span className="flex items-center gap-1 text-xs text-brand-400"><Clock className="h-3.5 w-3.5" />{coach.timezone}</span>
       </div>
 
@@ -153,7 +167,7 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
       )}
 
       {approval && (
-        <p className="mt-4 flex items-start gap-2 text-xs text-brand-500"><Video className="mt-0.5 h-3.5 w-3.5 shrink-0" />Requests are held until your coach confirms. You'll see the status on your Sessions page.</p>
+        <p className="mt-4 flex items-start gap-2 text-sm text-brand-600"><Video className="mt-0.5 h-4 w-4 shrink-0" />{coachFirst} will confirm before it's on your calendar.</p>
       )}
     </Modal>
   );

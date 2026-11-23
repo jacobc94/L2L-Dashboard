@@ -68,7 +68,12 @@ export function SessionsPanel({ engagement }: { engagement: Engagement }) {
 
   return (
     <div className="space-y-5">
-      {toast && <div role="status" className="rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">{toast}</div>}
+      {toast && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">
+          <span>{toast}</span>
+          <button type="button" className="shrink-0 font-bold underline" onClick={() => setToast('')}>Dismiss</button>
+        </div>
+      )}
       <HoursSummaryCard engagement={engagement} />
 
       <Card>
@@ -172,7 +177,7 @@ export function SessionsPanel({ engagement }: { engagement: Engagement }) {
         )}
       </Card>
 
-      {booking && <BookingModal engagement={engagement} existing={booking === 'new' ? undefined : booking} onClose={() => setBooking(null)} onDone={(m) => { setToast(m); setTimeout(() => setToast(''), 5000); }} />}
+      {booking && <BookingModal engagement={engagement} existing={booking === 'new' ? undefined : booking} onClose={() => setBooking(null)} onDone={setToast} />}
       {logging && <LogSessionModal engagement={engagement} session={logging === 'new' ? undefined : logging} onClose={() => setLogging(null)} />}
       {rating && <RateModal session={rating} onClose={() => setRating(null)} />}
       {cancelling && <CancelModal session={cancelling} engagement={engagement} onClose={() => setCancelling(null)} />}

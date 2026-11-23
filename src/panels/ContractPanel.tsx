@@ -16,7 +16,6 @@ export function ContractPanel({ engagement }: { engagement: Engagement }) {
   const v = useViewer();
   const dir = useDirectory();
   const [editing, setEditing] = React.useState(false);
-  const [name, setName] = React.useState('');
   const [agree, setAgree] = React.useState(false);
 
   const contract = [...state.contracts].reverse().find((c) => c.engagementId === engagement.id && c.status !== 'void');
@@ -45,7 +44,6 @@ export function ContractPanel({ engagement }: { engagement: Engagement }) {
   // A client who isn't the signer (other team members) can read but not sign
   const isSigner = v.role === 'client' && v.id === engagement.clientIds[0];
   const canSign = isSigner && contract.status === 'sent';
-  const nameOk = name.trim().toLowerCase() === (v.person.name).toLowerCase();
   const sections = renderContract(state, contract);
 
   if (v.role === 'client' && contract.status === 'draft') {
@@ -61,7 +59,7 @@ export function ContractPanel({ engagement }: { engagement: Engagement }) {
       {canSign && (
         <div className="no-print flex items-start gap-3 rounded-2xl border border-crimson-200 bg-crimson-50 p-4">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-crimson-600" />
-          <div className="text-sm"><p className="font-bold text-crimson-800">Action needed: review and sign below</p><p className="text-crimson-700">Read the agreement, then type your full name at the bottom to sign electronically.</p></div>
+          <div className="text-sm"><p className="font-bold text-crimson-800">Action needed: review and sign below</p><p className="text-crimson-700">Read the agreement, then sign with the name on your account.</p></div>
         </div>
       )}
       <Card className="print-area">
@@ -109,15 +107,12 @@ export function ContractPanel({ engagement }: { engagement: Engagement }) {
 
           {canSign && (
             <div className="no-print mt-6 rounded-xl border border-brand-200 bg-sand-50 p-4">
-              <Field label="Type your full name to sign" hint={`Must match “${v.person.name}”.`}>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={v.person.name} autoComplete="off" />
-              </Field>
-              <label className="mt-3 flex items-start gap-2 text-sm text-brand-600">
+              <label className="flex items-start gap-2 text-sm text-brand-600">
                 <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-700" />
-                I have read this agreement and agree to its terms. I understand typing my name is my electronic signature.
+                I have read this agreement and agree to its terms. Signing as {v.person.name} is my electronic signature.
               </label>
-              <Btn className="mt-4" variant="accent" icon={<BadgeCheck className="h-4 w-4" />} disabled={!nameOk || !agree} onClick={() => mutate((d) => signContract(d, contract.id, v.id, name))}>
-                Sign agreement
+              <Btn className="mt-4" variant="accent" icon={<BadgeCheck className="h-4 w-4" />} disabled={!agree} onClick={() => mutate((d) => signContract(d, contract.id, v.id, v.person.name))}>
+                Sign as {v.person.name}
               </Btn>
             </div>
           )}
