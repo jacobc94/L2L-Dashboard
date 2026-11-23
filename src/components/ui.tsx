@@ -151,10 +151,10 @@ export function Progress({ value, tone = 'teal', className = '' }: { value: numb
   );
 }
 
-/** Stacked hours bar: delivered (solid), booked (striped), unbooked (empty). */
+/** Stacked hours bar: used (solid), scheduled (striped), still available (empty). */
 export function HoursBar({ usedPct, bookedPct, className = '' }: { usedPct: number; bookedPct: number; className?: string }) {
   return (
-    <div className={cx('relative h-3 overflow-hidden rounded-full bg-brand-50', className)} aria-label={`${Math.round(usedPct)}% of hours delivered, ${Math.round(bookedPct)}% booked`}>
+    <div className={cx('relative h-3 overflow-hidden rounded-full bg-brand-50', className)} aria-label={`${Math.round(usedPct)}% of hours used, ${Math.round(bookedPct)}% scheduled`}>
       <div className="absolute inset-y-0 left-0 rounded-full bg-brand-300/70" style={{ width: `${bookedPct}%` }} />
       <div className="absolute inset-y-0 left-0 rounded-full bg-brand-700" style={{ width: `${usedPct}%` }} />
     </div>

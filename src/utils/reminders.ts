@@ -183,7 +183,7 @@ export function deriveReminders(state: AppState, now: Date = getNow()): Reminder
       if (left >= 0 && left <= 30) {
         push({
           key: `ending:${e.id}`, audience: { role: 'admin', id: '*' }, kind: 'custom', severity: 'warn',
-          title: `Engagement ends in ${left} day${left === 1 ? '' : 's'} — ${label}`,
+          title: `Program ends in ${left} day${left === 1 ? '' : 's'} — ${label}`,
           detail: `${Math.round(h.remaining * 10) / 10} contracted hours still unused.`, engagementId: e.id, href: `#/engagements/${e.id}`,
         });
       }
@@ -292,7 +292,7 @@ export function buildDigest(state: AppState, e: Engagement, clientId: string): O
     '',
     `Here's your week at a glance for ${e.title}:`,
     '',
-    `• Hours: ${Math.round(h.used * 100) / 100} delivered, ${Math.round(h.scheduled * 100) / 100} booked, ${Math.round(h.unbooked * 100) / 100} still unbooked (of ${h.contracted}).`,
+    `• Hours: ${Math.round(h.used * 100) / 100} used, ${Math.round(h.scheduled * 100) / 100} scheduled, ${Math.round(h.unbooked * 100) / 100} still available (of ${h.contracted}).`,
     `• Next session: ${next ? fmtDateTime(next.start) + ' (' + next.type + ')' : 'nothing booked yet — grab a time in your portal.'}`,
     `• Weekly check-in: ${checked ? 'received, thank you!' : 'not submitted yet — it takes about three minutes.'}`,
     open.length ? `• Open action items (${open.length}):` : '• No open action items.',

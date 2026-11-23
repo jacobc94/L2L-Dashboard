@@ -57,7 +57,7 @@ describe('client page rendering', () => {
         <App />
       </StoreProvider>,
     );
-    expect(html).toContain('Reset passcode');
-    expect(html).toContain('Confirm passcode');
+    expect(html).toContain('Reset password');
+    expect(html).toContain('Confirm password');
   });
 });

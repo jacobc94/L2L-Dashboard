@@ -27,7 +27,7 @@ export function PreProgramPanel({ engagement }: { engagement: Engagement }) {
   return (
     <Card>
       <CardHeader
-        title="Pre-program checklist"
+        title="Getting started"
         subtitle={engagement.status === 'Pre-program' ? (daysToStart > 0 ? `Program starts in ${daysToStart} day${daysToStart === 1 ? '' : 's'} (${fmtDate(engagement.startDate)})` : 'Program starts soon') : `${done} of ${tasks.length} steps complete`}
         icon={<ClipboardList className="h-5 w-5" />}
         action={v.isStaff && <Btn size="sm" variant="secondary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setAdding(true)}>Add step</Btn>}
@@ -98,7 +98,7 @@ function AddTaskModal({ engagement, onClose }: { engagement: Engagement; onClose
   const [who, setWho] = React.useState('');
   const people = dir.clientsOf(engagement);
   return (
-    <Modal title="Add pre-program step" onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!title.trim()} onClick={() => {
+    <Modal title="Add a getting-started step" onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!title.trim()} onClick={() => {
       mutate((d) => d.preTasks.push({ id: uid('t'), engagementId: engagement.id, title: title.trim(), description: desc.trim(), kind: 'custom', assignee, clientId: assignee === 'client' && who ? who : undefined, dueDate: due || undefined, done: false }));
       onClose();
     }}>Add step</Btn></>}>

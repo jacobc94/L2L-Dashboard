@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft, Briefcase, Download, Pause, Play, Plus, Search, Send, CheckCheck, Users } from 'lucide-react';
 import { Avatar, Badge, Btn, Card, CardHeader, Empty, Field, HoursBar, Input, Modal, PageHeader, Select, Tabs, Textarea, cx } from '../components/ui';
 import { go, useStore } from '../store';
-import { STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
+import { STATUS_LABEL, STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
 import { Engagement, EngagementType } from '../types';
 import { summarizeHours } from '../utils/hours';
 import { addDays, fmtDate, fmtDateTime, fmtHours, nowIso, parseDate, toIsoDate, todayIso } from '../utils/dates';
@@ -35,9 +35,9 @@ export function EngagementsList() {
   return (
     <>
       <PageHeader
-        title={v.isAdmin ? 'Engagements' : 'My Clients'}
-        subtitle="Every coaching program from pre-program to completion."
-        actions={<Btn variant="accent" icon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>New engagement</Btn>}
+        title={v.isAdmin ? 'Programs' : 'My Clients'}
+        subtitle="Every coaching program, from getting started through completion."
+        actions={<Btn variant="accent" icon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>New program</Btn>}
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
@@ -47,12 +47,12 @@ export function EngagementsList() {
         <div className="flex flex-wrap gap-1.5">
           {(['all', 'Pre-program', 'Active', 'Paused', 'Completed'] as const).map((s) => (
             <button key={s} onClick={() => setStatus(s)} className={cx('rounded-full px-3 py-1.5 text-xs font-bold ring-1 ring-inset transition', status === s ? 'bg-brand-800 text-white ring-brand-800' : 'bg-white text-brand-600 ring-brand-200 hover:bg-brand-50')}>
-              {s === 'all' ? `All (${engs.length})` : `${s} (${counts(s)})`}
+              {s === 'all' ? `All (${engs.length})` : `${STATUS_LABEL[s]} (${counts(s)})`}
             </button>
           ))}
         </div>
       </div>
-      {rows.length === 0 ? <Card><Empty title="No engagements match" icon={<Briefcase className="h-9 w-9" />} /></Card> : (
+      {rows.length === 0 ? <Card><Empty title="No programs match" icon={<Briefcase className="h-9 w-9" />} /></Card> : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {rows.map((e) => {
             const h = summarizeHours(e, state.sessions);
@@ -67,7 +67,7 @@ export function EngagementsList() {
                     <p className="truncate font-display font-bold group-hover:text-crimson-700">{dir.label(e)}</p>
                     <p className="truncate text-xs text-brand-500">{dir.org(e.orgId)?.name} · {e.type}{people.length > 1 ? ` · ${people.length} people` : ''}</p>
                   </div>
-                  <Badge tone={STATUS_TONE[e.status]}>{e.status}</Badge>
+                  <Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>
                 </div>
                 <div className="mt-4">
                   <div className="mb-1 flex justify-between text-xs"><span className="font-bold text-brand-600">{fmtHours(h.used)} / {fmtHours(h.contracted)} hrs</span><span className="text-brand-400">{e.phase}</span></div>
@@ -118,12 +118,12 @@ function NewEngagementModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="New engagement" wide onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!valid} onClick={create}>Create engagement</Btn></>}>
+    <Modal title="New program" wide onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn variant="accent" disabled={!valid} onClick={create}>Create program</Btn></>}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Program type"><Select value={type} onChange={(e) => { const t = e.target.value as EngagementType; setType(t); setPicked([]); setHours(t === 'Executive Coaching' ? 16 : 24); }}><option>Executive Coaching</option><option>Team Coaching</option><option>Leadership Cohort</option></Select></Field>
         <Field label="Organization"><Select value={orgId} onChange={(e) => { setOrgId(e.target.value); setPicked([]); }}>{state.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select></Field>
         <Field label={solo ? 'Client' : 'Participants (first is the primary contact & signer)'} className="sm:col-span-2">
-          {orgClients.length === 0 ? <p className="text-sm text-brand-500">No clients in this organization yet. Add them under Clients & Orgs first.</p> : (
+          {orgClients.length === 0 ? <p className="text-sm text-brand-500">No clients in this organization yet. Add them under People first.</p> : (
             <div className="flex flex-wrap gap-2">
               {orgClients.map((c) => {
                 const on = picked.includes(c.id);
@@ -137,7 +137,7 @@ function NewEngagementModal({ onClose }: { onClose: () => void }) {
         <Field label="Start date"><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
         <Field label="Length (months)"><Select value={months} onChange={(e) => setMonths(Number(e.target.value))}>{[3, 4, 6, 9, 12].map((m) => <option key={m} value={m}>{m}</option>)}</Select></Field>
       </div>
-      <p className="mt-4 text-xs text-brand-400">We'll create the standard pre-program checklist and a draft agreement you can edit and send.</p>
+      <p className="mt-4 text-xs text-brand-400">We'll create the standard getting-started checklist and a draft agreement you can edit and send.</p>
     </Modal>
   );
 }
@@ -151,7 +151,7 @@ export function EngagementWorkspace({ id, tab }: { id: string; tab?: string }) {
   const engs = useMyEngagements();
   const e = engs.find((x) => x.id === id);
   const active = (['overview', 'program', 'contract', 'sessions', 'checkins', 'actions', 'messages'].includes(tab ?? '') ? tab : 'overview') as Tab;
-  if (!e) return <><PageHeader title="Engagement not found" /><Card><Empty title="You don't have access to this engagement, or it no longer exists." action={<Btn onClick={() => go('/engagements')}>Back to engagements</Btn>} /></Card></>;
+  if (!e) return <><PageHeader title="Program not found" /><Card><Empty title="You don't have access to this program, or it no longer exists." action={<Btn onClick={() => go('/engagements')}>Back to programs</Btn>} /></Card></>;
 
   const unread = state.messages.filter((m) => m.engagementId === e.id && !m.readBy.includes(v.id)).length;
   const awaiting = state.checkIns.filter((c) => c.engagementId === e.id && !c.coachResponse).length;
@@ -161,12 +161,12 @@ export function EngagementWorkspace({ id, tab }: { id: string; tab?: string }) {
 
   return (
     <>
-      <button onClick={() => go('/engagements')} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-brand-500 hover:text-brand-800"><ArrowLeft className="h-4 w-4" />All engagements</button>
+      <button onClick={() => go('/engagements')} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-brand-500 hover:text-brand-800"><ArrowLeft className="h-4 w-4" />All programs</button>
       <PageHeader
         title={dir.label(e)}
         subtitle={<>{dir.org(e.orgId)?.name} · {e.type} · {fmtDate(e.startDate)} – {fmtDate(e.endDate, { month: 'short', day: 'numeric', year: 'numeric' })}</>}
         actions={<>
-          <Badge tone={STATUS_TONE[e.status]}>{e.status}</Badge>
+          <Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>
           {e.status === 'Pre-program' && <Btn size="sm" icon={<Play className="h-3.5 w-3.5" />} onClick={() => set((x) => { x.status = 'Active'; })}>Start program</Btn>}
           {e.status === 'Active' && <Btn size="sm" variant="secondary" icon={<Pause className="h-3.5 w-3.5" />} onClick={() => set((x) => { x.status = 'Paused'; })}>Pause</Btn>}
           {e.status === 'Paused' && <Btn size="sm" icon={<Play className="h-3.5 w-3.5" />} onClick={() => set((x) => { x.status = 'Active'; })}>Resume</Btn>}
@@ -179,7 +179,7 @@ export function EngagementWorkspace({ id, tab }: { id: string; tab?: string }) {
           onChange={(t) => go(`/engagements/${e.id}${t === 'overview' ? '' : '/' + t}`)}
           tabs={[
             { id: 'overview', label: 'Overview' },
-            { id: 'program', label: 'Pre-program' },
+            { id: 'program', label: 'Getting started' },
             { id: 'contract', label: 'Contract', badge: contract?.status === 'draft' || contract?.status === 'sent' ? 1 : undefined },
             { id: 'sessions', label: 'Sessions & hours' },
             { id: 'checkins', label: 'Check-ins', badge: awaiting },

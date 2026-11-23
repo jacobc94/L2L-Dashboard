@@ -102,7 +102,7 @@ export function BookingModal({ engagement, existing, onClose, onDone }: { engage
       {over && (
         <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          This is longer than the {fmtHours(hours.unbooked)} unbooked hours left in the agreement. Your coach may suggest adding hours.
+          This is longer than the {fmtHours(hours.unbooked)} hours still available in the agreement. Your coach may suggest adding hours.
         </p>
       )}
 

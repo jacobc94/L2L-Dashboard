@@ -2,6 +2,7 @@ import React from 'react';
 import { Building2, Pencil, Plus, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar, Badge, Btn, Card, CardHeader, Empty, Field, Input, Modal, PageHeader, Select, Textarea } from '../components/ui';
 import { go, useStore } from '../store';
+import { STATUS_LABEL } from '../hooks';
 import { Client, Organization, Staff } from '../types';
 import { uid } from '../utils/id';
 import { removeStaff } from '../utils/actions';
@@ -15,7 +16,7 @@ export function PeoplePage() {
   const [orgOpen, setOrgOpen] = React.useState<Organization | 'new' | null>(null);
   return (
     <>
-      <PageHeader title="Clients & Organizations" subtitle="Everyone who takes part in a program." actions={<><Btn variant="secondary" icon={<Building2 className="h-4 w-4" />} onClick={() => setOrgOpen('new')}>Add organization</Btn><Btn variant="accent" icon={<UserPlus className="h-4 w-4" />} onClick={() => setEditing('new')}>Add client</Btn></>} />
+      <PageHeader title="People" subtitle="Everyone who takes part in a program." actions={<><Btn variant="secondary" icon={<Building2 className="h-4 w-4" />} onClick={() => setOrgOpen('new')}>Add organization</Btn><Btn variant="accent" icon={<UserPlus className="h-4 w-4" />} onClick={() => setEditing('new')}>Add client</Btn></>} />
       <div className="space-y-5">
         {state.orgs.map((o) => {
           const clients = state.clients.filter((c) => c.orgId === o.id);
@@ -30,8 +31,8 @@ export function PeoplePage() {
                       <li key={c.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                         <Avatar name={c.name} size={34} />
                         <div className="min-w-0 flex-1"><p className="text-sm font-bold">{c.name}</p><p className="text-xs text-brand-500">{c.title} · {c.email}{c.phone ? ` · ${c.phone}` : ''}</p></div>
-                        <div className="flex flex-wrap gap-1.5">{engs.map((e) => <button key={e.id} onClick={() => go(`/engagements/${e.id}`)}><Badge tone={e.status === 'Active' ? 'green' : e.status === 'Completed' ? 'blue' : 'amber'}>{e.type} · {e.status}</Badge></button>)}{engs.length === 0 && <Badge>No program</Badge>}</div>
-                        {mode === 'cloud' && <Btn size="sm" variant={c.joined ? 'ghost' : 'secondary'} onClick={() => setInviting(c)}>{c.joined ? 'Reset passcode' : 'Invite'}</Btn>}
+                        <div className="flex flex-wrap gap-1.5">{engs.map((e) => <button key={e.id} onClick={() => go(`/engagements/${e.id}`)}><Badge tone={e.status === 'Active' ? 'green' : e.status === 'Completed' ? 'blue' : 'amber'}>{e.type} · {STATUS_LABEL[e.status]}</Badge></button>)}{engs.length === 0 && <Badge>No program</Badge>}</div>
+                        {mode === 'cloud' && <Btn size="sm" variant={c.joined ? 'ghost' : 'secondary'} onClick={() => setInviting(c)}>{c.joined ? 'Reset password' : 'Invite'}</Btn>}
                         {mode === 'cloud' && !c.joined && <Badge tone="amber">Not signed in yet</Badge>}
                         <Btn size="sm" variant="ghost" aria-label={`Edit ${c.name}`} icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setEditing(c)} />
                       </li>
@@ -130,7 +131,7 @@ export function TeamPage() {
                   <div className="mt-2 flex flex-wrap gap-1.5"><Badge tone={s.role === 'admin' ? 'crimson' : 'teal'}>{s.role === 'admin' ? 'Admin' : 'Coach'}</Badge><Badge>{active} active · {mine.length} total</Badge><Badge tone={s.availability.length ? 'green' : 'neutral'}>{s.availability.length ? `${s.availability.length} availability windows` : 'Not bookable'}</Badge>{mode === 'cloud' && s.joined === false && <Badge tone="amber">Not signed in yet</Badge>}</div>
                   {s.role === 'coach' && !s.availability.length && <button onClick={() => go('/schedule')} className="mt-2 text-xs font-bold text-crimson-700 hover:underline">Set their availability →</button>}
                 </div>
-                {mode === 'cloud' && s.id !== me?.id && <Btn size="sm" variant={s.joined ? 'ghost' : 'secondary'} onClick={() => setInviting(s)}>{s.joined ? 'Reset passcode' : 'Invite'}</Btn>}
+                {mode === 'cloud' && s.id !== me?.id && <Btn size="sm" variant={s.joined ? 'ghost' : 'secondary'} onClick={() => setInviting(s)}>{s.joined ? 'Reset password' : 'Invite'}</Btn>}
                 <Btn size="sm" variant="ghost" aria-label={`Edit ${s.name}`} icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setEditing(s)} />
               </div>
               {s.bio && <p className="mt-3 text-sm text-brand-600">{s.bio}</p>}
@@ -182,16 +183,16 @@ function RemoveStaffModal({ person, onClose }: { person: Staff; onClose: () => v
   };
   return (
     <Modal title={`Remove ${person.name}`} onClose={onClose} footer={<><Btn variant="ghost" onClick={onClose}>Keep them</Btn><Btn variant="danger" disabled={needsCover && !to} onClick={confirm} icon={<Trash2 className="h-4 w-4" />}>Remove {person.name.split(' ')[0]}</Btn></>}>
-      <p className="text-sm text-brand-600">They will no longer be able to sign in. {needsCover ? <>They coach <b>{owned.length}</b> engagement{owned.length === 1 ? '' : 's'} ({live.length} active or pre-program) with <b>{upcoming}</b> upcoming session{upcoming === 1 ? '' : 's'}.</> : 'They have no clients assigned.'}</p>
+      <p className="text-sm text-brand-600">They will no longer be able to sign in. {needsCover ? <>They coach <b>{owned.length}</b> program{owned.length === 1 ? '' : 's'} ({live.length} active or getting started) with <b>{upcoming}</b> upcoming session{upcoming === 1 ? '' : 's'}.</> : 'They have no clients assigned.'}</p>
       {needsCover && (
         <>
-          <Field label="Hand their clients to" className="mt-4" hint="Clients keep their history and hours. Upcoming sessions move to the new coach; sessions already delivered stay credited to the coach who ran them.">
+          <Field label="Hand their clients to" className="mt-4" hint="Clients keep their history and hours. Upcoming sessions move to the new coach; sessions already used stay credited to the coach who ran them.">
             <Select value={to} onChange={(e) => setTo(e.target.value)}>{others.map((s) => <option key={s.id} value={s.id}>{s.name}{s.availability.length ? '' : ' (no availability set)'}</option>)}</Select>
           </Field>
-          <ul className="mt-3 list-disc pl-5 text-sm text-brand-600">{owned.map((e) => <li key={e.id}>{e.title} <span className="text-brand-400">· {e.status}</span></li>)}</ul>
+          <ul className="mt-3 list-disc pl-5 text-sm text-brand-600">{owned.map((e) => <li key={e.id}>{e.title} <span className="text-brand-400">· {STATUS_LABEL[e.status]}</span></li>)}</ul>
         </>
       )}
-      <p className="mt-4 text-xs text-brand-400">Clients aren't notified automatically — let them know who their new coach is (a message from the engagement page works).</p>
+      <p className="mt-4 text-xs text-brand-400">Clients aren't notified automatically — let them know who their new coach is (a message from the program page works).</p>
       {error && <p role="alert" className="mt-3 rounded-lg bg-crimson-50 p-3 text-sm font-semibold text-crimson-700">{error}</p>}
     </Modal>
   );

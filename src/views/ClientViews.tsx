@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowRight, CalendarClock, ClipboardCheck, HeartPulse, MessageSquare, Sparkles, Video, MapPin, Phone, Building2 } from 'lucide-react';
 import { Badge, Btn, Card, CardHeader, Empty, PageHeader, Ring, SEVERITY_DOT, cx } from '../components/ui';
 import { go, useStore } from '../store';
-import { useClientEngagement, useDirectory, useViewer } from '../hooks';
+import { STATUS_LABEL, useClientEngagement, useDirectory, useViewer } from '../hooks';
 import { Engagement } from '../types';
 import { summarizeHours } from '../utils/hours';
 import { fmtDate, fmtHours, fmtRelativeDay, hoursUntil, nowIso, parseDateTime, weekStart, todayIso } from '../utils/dates';
@@ -57,7 +57,7 @@ export function ClientHome() {
       <PageHeader
         title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, ${v.name.split(' ')[0]}`}
         subtitle={<>{e.title} · coached by <b>{coach.name}</b></>}
-        actions={<Badge tone={e.status === 'Active' ? 'green' : e.status === 'Pre-program' ? 'amber' : 'blue'}>{e.status}</Badge>}
+        actions={<Badge tone={e.status === 'Active' ? 'green' : e.status === 'Pre-program' ? 'amber' : 'blue'}>{STATUS_LABEL[e.status]}</Badge>}
       />
 
       {e.status === 'Pre-program' && (
@@ -130,7 +130,7 @@ export function ClientHome() {
             <p className="text-[11px] font-bold uppercase tracking-wide text-brand-400">Coaching hours</p>
             <div className="mt-3 flex items-center gap-4">
               <Ring pct={hours.usedPct} size={92}><div><div className="font-display text-2xl font-extrabold leading-none">{fmtHours(hours.remaining)}</div><div className="text-[10px] font-bold uppercase text-brand-400">hrs left</div></div></Ring>
-              <ul className="space-y-1 text-sm"><li><b>{fmtHours(hours.used)}</b> <span className="text-brand-500">delivered</span></li><li><b>{fmtHours(hours.scheduled)}</b> <span className="text-brand-500">booked</span></li><li><b>{fmtHours(hours.unbooked)}</b> <span className="text-brand-500">unbooked</span></li></ul>
+              <ul className="space-y-1 text-sm"><li><b>{fmtHours(hours.used)}</b> <span className="text-brand-500">used</span></li><li><b>{fmtHours(hours.scheduled)}</b> <span className="text-brand-500">scheduled</span></li><li><b>{fmtHours(hours.unbooked)}</b> <span className="text-brand-500">still available</span></li></ul>
             </div>
           </Card>
           <Card className="p-5">

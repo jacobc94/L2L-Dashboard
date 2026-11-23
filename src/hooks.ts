@@ -52,3 +52,11 @@ export function useDirectory() {
 }
 
 export const STATUS_TONE = { 'Pre-program': 'amber', Active: 'green', Paused: 'neutral', Completed: 'blue' } as const;
+
+/** Plain-language status. The stored value stays "Pre-program". */
+export const STATUS_LABEL: Record<Engagement['status'], string> = {
+  'Pre-program': 'Getting started',
+  Active: 'Active',
+  Paused: 'Paused',
+  Completed: 'Completed',
+};

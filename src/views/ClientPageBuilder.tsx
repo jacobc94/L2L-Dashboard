@@ -13,7 +13,7 @@ export function ClientPageBuilder() {
   const client = state.clients.find((c) => c.id === clientId);
   return (
     <>
-      <PageHeader title="Client pages" subtitle="Customize pages and check-in questions for each client." />
+      <PageHeader title="What clients see" subtitle="Customize pages and check-in questions for each client." />
       <Card className="space-y-4 p-5">
         <Field label="Client">
           <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>

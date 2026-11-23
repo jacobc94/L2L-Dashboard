@@ -14,7 +14,7 @@ const LIMITS = { u: 5, ip: 30 };
 const RESET_WINDOW_MS = 15 * 60_000;
 const RESET_EXPIRY_MS = 60 * 60_000;
 
-const GENERIC_LOGIN_ERROR = "That email and passcode don't match.";
+const GENERIC_LOGIN_ERROR = "That email and password don't match.";
 // Real PBKDF2 hash of a throwaway value, verified when the email is unknown so response time doesn't reveal which emails exist
 const DUMMY = { hash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', salt: 'AAAAAAAAAAAAAAAAAAAAAA', iters: 100_000 };
 
@@ -106,10 +106,10 @@ export async function requireUser(request: Request, env: Env): Promise<SessionUs
 
 // ── Passcode policy ──
 export function checkPasscode(passcode: unknown, email: string): string {
-  if (typeof passcode !== 'string') throw new HttpError(400, 'Choose a passcode.');
-  if (passcode.length < 10) throw new HttpError(400, 'Use at least 10 characters for your passcode.');
-  if (passcode.length > 200) throw new HttpError(400, 'That passcode is too long.');
-  if (/^(.)\1+$/.test(passcode) || passcode.toLowerCase() === email.toLowerCase()) throw new HttpError(400, 'Choose a less guessable passcode.');
+  if (typeof passcode !== 'string') throw new HttpError(400, 'Choose a password.');
+  if (passcode.length < 10) throw new HttpError(400, 'Use at least 10 characters for your password.');
+  if (passcode.length > 200) throw new HttpError(400, 'That password is too long.');
+  if (/^(.)\1+$/.test(passcode) || passcode.toLowerCase() === email.toLowerCase()) throw new HttpError(400, 'Choose a less guessable password.');
   return passcode;
 }
 

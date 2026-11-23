@@ -158,7 +158,7 @@ describe('weekly digest', () => {
     const e = s.engagements.find((x) => x.id === 'e_maria')!;
     const mail = buildDigest(s, e, 'c_maria')!;
     expect(mail.toEmail).toBe('maria@harborview.example');
-    expect(mail.body).toContain('7 delivered, 2 booked, 11 still unbooked (of 20)');
+    expect(mail.body).toContain('7 used, 2 scheduled, 11 still available (of 20)');
     expect(mail.body).toContain('Open action items');
     expect(mail.body).not.toContain('undefined');
   });

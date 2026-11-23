@@ -29,9 +29,9 @@ export function HoursSummaryCard({ engagement }: { engagement: Engagement }) {
         <div className="min-w-[220px] flex-1">
           <HoursBar usedPct={h.usedPct} bookedPct={h.bookedPct} />
           <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <div><div className="font-display text-lg font-extrabold text-brand-700">{fmtHours(h.used)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-700" />Delivered</div></div>
-            <div><div className="font-display text-lg font-extrabold text-brand-500">{fmtHours(h.scheduled)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-300" />Booked</div></div>
-            <div><div className="font-display text-lg font-extrabold text-brand-800">{fmtHours(h.unbooked)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-100 ring-1 ring-brand-200" />Unbooked</div></div>
+            <div><div className="font-display text-lg font-extrabold text-brand-700">{fmtHours(h.used)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-700" />Used</div></div>
+            <div><div className="font-display text-lg font-extrabold text-brand-500">{fmtHours(h.scheduled)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-300" />Scheduled</div></div>
+            <div><div className="font-display text-lg font-extrabold text-brand-800">{fmtHours(h.unbooked)}</div><div className="text-[11px] text-brand-400"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-100 ring-1 ring-brand-200" />Still available</div></div>
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@ export function SessionsPanel({ engagement }: { engagement: Engagement }) {
           }
         />
         {upcoming.length === 0 ? (
-          <Empty title="Nothing on the calendar" hint={canBook ? 'Book your next session while there are open times.' : 'This engagement is complete.'} />
+          <Empty title="Nothing on the calendar" hint={canBook ? 'Book your next session while there are open times.' : 'This program is complete.'} />
         ) : (
           <ul className="divide-y divide-brand-50">
             {upcoming.map((s) => {

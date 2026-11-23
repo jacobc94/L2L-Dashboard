@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowRight, Briefcase, CalendarClock, Clock, FileSignature, Inbox, Mail } from 'lucide-react';
 import { Avatar, Badge, Btn, Card, CardHeader, Empty, HoursBar, PageHeader, SEVERITY_DOT, Stat, cx } from '../components/ui';
 import { go, useStore } from '../store';
-import { STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
+import { STATUS_LABEL, STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
 import { fmtDate, fmtDateTime, fmtHours, fmtRelativeDay, nowIso, parseDateTime, todayIso, addDays, weekStart } from '../utils/dates';
 import { sessionHours, summarizeHours } from '../utils/hours';
 
@@ -33,9 +33,9 @@ export function StaffDashboard() {
     <>
       <PageHeader title={`Hello, ${v.name.split(' ')[0]}`} subtitle={v.isAdmin ? 'Here is where the whole practice stands today.' : 'Here is what needs you today.'} />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Active programs" value={active} sub={`${pre} in pre-program`} icon={<Briefcase className="h-4 w-4" />} />
+        <Stat label="Active programs" value={active} sub={`${pre} getting started`} icon={<Briefcase className="h-4 w-4" />} />
         <Stat label="Sessions this week" value={thisWeek} sub={`${upcoming.filter((s) => s.status === 'requested').length} awaiting confirmation`} icon={<CalendarClock className="h-4 w-4" />} />
-        <Stat label="Hours delivered (month)" value={fmtHours(monthHours)} sub="completed sessions" icon={<Clock className="h-4 w-4" />} />
+        <Stat label="Hours used (month)" value={fmtHours(monthHours)} sub="completed sessions" icon={<Clock className="h-4 w-4" />} />
         <Stat label="Needs attention" value={attention.length} tone={attention.length ? 'crimson' : 'teal'} sub={`${waiting} check-in${waiting === 1 ? '' : 's'} to answer`} icon={<AlertTriangle className="h-4 w-4" />} />
       </div>
 
@@ -67,7 +67,7 @@ export function StaffDashboard() {
                     <li key={e.id}><a href={`#/engagements/${e.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-brand-50">
                       <Avatar name={dir.label(e)} size={34} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2"><p className="truncate text-sm font-bold">{dir.label(e)}</p><Badge tone={STATUS_TONE[e.status]}>{e.status}</Badge></div>
+                        <div className="flex items-center gap-2"><p className="truncate text-sm font-bold">{dir.label(e)}</p><Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge></div>
                         <div className="mt-1.5 flex items-center gap-3"><HoursBar className="h-2 flex-1" usedPct={h.usedPct} bookedPct={h.bookedPct} /><span className={cx('w-24 shrink-0 text-right text-xs font-bold', warn ? 'text-crimson-600' : 'text-brand-500')}>{fmtHours(h.used)}/{fmtHours(h.contracted)} hrs</span></div>
                       </div>
                     </a></li>

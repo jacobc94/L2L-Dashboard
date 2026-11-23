@@ -2,7 +2,7 @@ import React from 'react';
 import { Bell, CheckCheck, Copy, Download, ExternalLink, FileSignature, Mail, Plus, RotateCcw, Send, Trash2, Upload } from 'lucide-react';
 import { Badge, Btn, Card, CardHeader, Empty, Field, Input, PageHeader, SEVERITY_DOT, Select, Stat, Tabs, Textarea, cx } from '../components/ui';
 import { go, useStore } from '../store';
-import { STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
+import { STATUS_LABEL, STATUS_TONE, useDirectory, useMyEngagements, useViewer } from '../hooks';
 import { AppState, ContractStatus, OutboxEmail } from '../types';
 import { summarizeHours } from '../utils/hours';
 import { fmtDate, fmtHours, nowIso } from '../utils/dates';
@@ -42,7 +42,7 @@ export function ContractsPage() {
       <Card className="overflow-x-auto">
         {rows.length === 0 ? <Empty title="No contracts" icon={<FileSignature className="h-9 w-9" />} /> : (
           <table className="w-full min-w-[720px] text-sm">
-            <thead><tr className="border-b border-brand-100 text-left text-[11px] font-bold uppercase tracking-wide text-brand-400"><th className="px-5 py-3">Engagement</th><th>Status</th><th>Hours</th><th>Fee</th><th>Sent</th><th>Signed</th><th className="pr-5 text-right">Actions</th></tr></thead>
+            <thead><tr className="border-b border-brand-100 text-left text-[11px] font-bold uppercase tracking-wide text-brand-400"><th className="px-5 py-3">Program</th><th>Status</th><th>Hours</th><th>Fee</th><th>Sent</th><th>Signed</th><th className="pr-5 text-right">Actions</th></tr></thead>
             <tbody className="divide-y divide-brand-50">
               {rows.map((c) => {
                 const e = state.engagements.find((x) => x.id === c.engagementId);
@@ -92,19 +92,19 @@ export function HoursPage() {
 
   return (
     <>
-      <PageHeader title={v.isAdmin ? 'Hours & Billing' : 'Hours'} subtitle="Contracted vs. delivered hours, and a ledger you can export for invoicing." actions={<div className="flex items-center gap-2">{coachesAny && <div className="inline-flex rounded-lg bg-brand-50 p-0.5">{(['all', 'mine'] as const).map((k) => <button key={k} onClick={() => setScope(k)} aria-pressed={scope === k} className={cx('rounded-md px-3 py-1 text-xs font-bold', scope === k ? 'bg-white shadow-sm' : 'text-brand-400')}>{k === 'all' ? 'Everyone' : 'My coaching'}</button>)}</div>}<Btn variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export ledger CSV</Btn>{v.isAdmin && <><Btn variant="secondary" icon={<Download className="h-4 w-4" />} disabled={month === 'all'} title={month === 'all' ? 'Pick a month in the session ledger first' : 'One invoice per engagement for the selected month'} onClick={exportQb}>QuickBooks invoices CSV</Btn><a className="inline-flex items-center gap-1 text-xs font-bold text-brand-500 hover:text-crimson-700" href="https://qbo.intuit.com/app/invoice" target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" />Open QuickBooks</a></>}</div>} />
+      <PageHeader title={v.isAdmin ? 'Hours & Billing' : 'Hours'} subtitle="Contracted vs. used hours, and a ledger you can export for invoicing." actions={<div className="flex items-center gap-2">{coachesAny && <div className="inline-flex rounded-lg bg-brand-50 p-0.5">{(['all', 'mine'] as const).map((k) => <button key={k} onClick={() => setScope(k)} aria-pressed={scope === k} className={cx('rounded-md px-3 py-1 text-xs font-bold', scope === k ? 'bg-white shadow-sm' : 'text-brand-400')}>{k === 'all' ? 'Everyone' : 'My coaching'}</button>)}</div>}<Btn variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportCsv}>Export ledger CSV</Btn>{v.isAdmin && <><Btn variant="secondary" icon={<Download className="h-4 w-4" />} disabled={month === 'all'} title={month === 'all' ? 'Pick a month in the session ledger first' : 'One invoice per program for the selected month'} onClick={exportQb}>QuickBooks invoices CSV</Btn><a className="inline-flex items-center gap-1 text-xs font-bold text-brand-500 hover:text-crimson-700" href="https://qbo.intuit.com/app/invoice" target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" />Open QuickBooks</a></>}</div>} />
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Contracted hours" value={fmtHours(tot.contracted)} /><Stat label="Delivered" value={fmtHours(tot.used)} sub={tot.contracted ? `${Math.round((tot.used / tot.contracted) * 100)}% of contracted` : undefined} /><Stat label="Booked ahead" value={fmtHours(tot.sched)} /><Stat label="Signed contract value" value={`$${tot.fee.toLocaleString()}`} sub="from signed agreements" />
+        <Stat label="Contracted hours" value={fmtHours(tot.contracted)} /><Stat label="Used" value={fmtHours(tot.used)} sub={tot.contracted ? `${Math.round((tot.used / tot.contracted) * 100)}% of contracted` : undefined} /><Stat label="Scheduled" value={fmtHours(tot.sched)} /><Stat label="Signed contract value" value={`$${tot.fee.toLocaleString()}`} sub="from signed agreements" />
       </div>
       <Card className="mb-5 overflow-x-auto">
-        <CardHeader title="By engagement" />
+        <CardHeader title="By program" />
         <table className="w-full min-w-[720px] text-sm">
-          <thead><tr className="border-b border-brand-100 text-left text-[11px] font-bold uppercase tracking-wide text-brand-400"><th className="px-5 py-3">Engagement</th><th>Status</th><th className="text-right">Contracted</th><th className="text-right">Delivered</th><th className="text-right">Booked</th><th className="text-right">Remaining</th><th className="pr-5 text-right">Used</th></tr></thead>
+          <thead><tr className="border-b border-brand-100 text-left text-[11px] font-bold uppercase tracking-wide text-brand-400"><th className="px-5 py-3">Program</th><th>Status</th><th className="text-right">Contracted</th><th className="text-right">Used</th><th className="text-right">Scheduled</th><th className="text-right">Remaining</th><th className="pr-5 text-right">Used %</th></tr></thead>
           <tbody className="divide-y divide-brand-50">
             {rows.map(({ e, h }) => (
               <tr key={e.id} className="hover:bg-brand-50/50">
                 <td className="px-5 py-3"><button className="text-left font-bold hover:text-crimson-700" onClick={() => go(`/engagements/${e.id}/sessions`)}>{dir.label(e)}</button><div className="text-xs text-brand-400">{dir.staff(e.coachId)?.name}</div></td>
-                <td><Badge tone={STATUS_TONE[e.status]}>{e.status}</Badge></td>
+                <td><Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge></td>
                 <td className="text-right">{fmtHours(h.contracted)}</td><td className="text-right font-bold">{fmtHours(h.used)}</td><td className="text-right text-brand-500">{fmtHours(h.scheduled)}</td><td className="text-right">{fmtHours(h.remaining)}</td>
                 <td className={cx('pr-5 text-right font-bold', h.usedPct >= state.settings.lowHoursThreshold * 100 && e.status === 'Active' ? 'text-crimson-600' : '')}>{Math.round(h.usedPct)}%</td>
               </tr>
@@ -113,8 +113,8 @@ export function HoursPage() {
         </table>
       </Card>
       <Card className="overflow-x-auto">
-        <CardHeader title="Session ledger" subtitle={`${ledger.length} delivered session${ledger.length === 1 ? '' : 's'} · ${fmtHours(ledgerTotal)} hours`} action={<Select className="w-auto" aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)}><option value="all">All time</option>{months.map((m) => <option key={m} value={m}>{new Date(m + '-01T00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</option>)}</Select>} />
-        {ledger.length === 0 ? <Empty title="No delivered sessions in this period" /> : (
+        <CardHeader title="Session ledger" subtitle={`${ledger.length} completed session${ledger.length === 1 ? '' : 's'} · ${fmtHours(ledgerTotal)} hours`} action={<Select className="w-auto" aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)}><option value="all">All time</option>{months.map((m) => <option key={m} value={m}>{new Date(m + '-01T00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</option>)}</Select>} />
+        {ledger.length === 0 ? <Empty title="No completed sessions in this period" /> : (
           <table className="w-full min-w-[640px] text-sm">
             <thead><tr className="border-b border-brand-100 text-left text-[11px] font-bold uppercase tracking-wide text-brand-400"><th className="px-5 py-3">Date</th><th>Client / program</th><th>Coach</th><th>Type</th><th className="pr-5 text-right">Hours</th></tr></thead>
             <tbody className="divide-y divide-brand-50">

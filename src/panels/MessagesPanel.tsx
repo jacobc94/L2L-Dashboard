@@ -28,7 +28,7 @@ export function MessagesPanel({ engagement, height = 'max-h-[460px]' }: { engage
 
   return (
     <Card>
-      <CardHeader title="Messages" subtitle={engagement.clientIds.length > 1 ? (v.role === 'client' ? 'Shared thread with your team and coach' : 'Shared thread with the whole team') : v.role === 'client' ? 'Private thread with your coach' : 'Thread with the client — visible to the engagement\'s coach and admins'} icon={<MessageSquare className="h-5 w-5" />} />
+      <CardHeader title="Messages" subtitle={engagement.clientIds.length > 1 ? (v.role === 'client' ? 'Shared thread with your team and coach' : 'Shared thread with the whole team') : v.role === 'client' ? 'Private thread with your coach' : 'Thread with the client — visible to this program\'s coach and admins'} icon={<MessageSquare className="h-5 w-5" />} />
       <div className={cx('space-y-3 overflow-y-auto p-5', height)} aria-live="polite">
         {thread.length === 0 ? <Empty title="No messages yet" hint="Send a note — quick questions are welcome here." /> : thread.map((m) => {
           const mine = m.fromId === v.id;

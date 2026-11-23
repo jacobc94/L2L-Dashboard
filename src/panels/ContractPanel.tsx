@@ -122,7 +122,7 @@ export function ContractPanel({ engagement }: { engagement: Engagement }) {
             </div>
           )}
           {contract.status === 'sent' && v.role === 'client' && !isSigner && (
-            <p className="no-print mt-6 text-sm text-brand-500">{primary?.name} is the signer for this engagement. You'll be notified once it's signed.</p>
+            <p className="no-print mt-6 text-sm text-brand-500">{primary?.name} is the signer for this program. You'll be notified once it's signed.</p>
           )}
         </div>
       </Card>

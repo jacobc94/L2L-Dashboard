@@ -36,7 +36,7 @@ export function useNav(): NavItem[] {
   const requests = state.sessions.filter((s) => ids.has(s.engagementId) && s.status === 'requested').length;
   const common: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className={i} /> },
-    { id: 'engagements', label: v.isAdmin ? 'Engagements' : 'My Clients', icon: <Briefcase className={i} /> },
+    { id: 'engagements', label: v.isAdmin ? 'Programs' : 'My Clients', icon: <Briefcase className={i} /> },
     { id: 'schedule', label: 'Schedule', icon: <CalendarDays className={i} />, badge: requests },
     { id: 'checkins', label: 'Check-ins', icon: <HeartPulse className={i} />, badge: awaiting },
     { id: 'messages', label: 'Messages', icon: <MessageSquare className={i} />, badge: unreadMsgs },
@@ -44,8 +44,8 @@ export function useNav(): NavItem[] {
   if (!v.isAdmin) return [...common, { id: 'hours', label: 'Hours', icon: <Clock className={i} /> }, { id: 'reminders', label: 'Reminders', icon: <Mail className={i} /> }, { id: 'resources', label: 'Resources', icon: <BookOpen className={i} /> }];
   return [
     ...common,
-    { id: 'people', label: 'Clients & Orgs', icon: <Building2 className={i} /> },
-    { id: 'client-pages', label: 'Client pages', icon: <FileText className={i} /> },
+    { id: 'people', label: 'People', icon: <Building2 className={i} /> },
+    { id: 'client-pages', label: 'What clients see', icon: <FileText className={i} /> },
     { id: 'team', label: 'L2L Team', icon: <Users className={i} /> },
     { id: 'contracts', label: 'Contracts', icon: <FileSignature className={i} /> },
     { id: 'hours', label: 'Hours & Billing', icon: <Clock className={i} /> },

@@ -23,10 +23,10 @@ export function InviteModal({ person, onClose }: { person: { id: string; name: s
   const copy = (what: 'code' | 'link') => { navigator.clipboard?.writeText(what === 'code' ? result!.code : result!.link); setCopied(what); setTimeout(() => setCopied(null), 1800); };
 
   return (
-    <Modal title={person.joined ? `Reset passcode — ${person.name}` : `Invite ${person.name}`} onClose={onClose} footer={<Btn variant="secondary" onClick={onClose}>Done</Btn>}>
+    <Modal title={person.joined ? `Reset password — ${person.name}` : `Invite ${person.name}`} onClose={onClose} footer={<Btn variant="secondary" onClick={onClose}>Done</Btn>}>
       {!result ? (
         <>
-          <p className="text-sm text-brand-600">{person.joined ? 'This creates a one-time code so they can choose a new passcode. Their current passcode keeps working until they use it.' : 'This creates a one-time invite code. They use it to choose their own passcode — you never see or set it.'}</p>
+          <p className="text-sm text-brand-600">{person.joined ? 'This creates a one-time code so they can choose a new password. Their current password keeps working until they use it.' : 'This creates a one-time invite code. They use it to choose their own password — you never see or set it.'}</p>
           <p className="mt-2 text-sm text-brand-500">For <b>{person.email}</b>. The code works once and expires in 7 days.</p>
           {error && <p role="alert" className="mt-3 rounded-lg bg-crimson-50 p-3 text-sm font-semibold text-crimson-700">{error}</p>}
           <div className="mt-5 flex flex-wrap gap-2">

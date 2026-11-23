@@ -125,16 +125,16 @@ export function PasscodeCard() {
   const [busy, setBusy] = React.useState(false);
   return (
     <Card>
-      <CardHeader title="Change my passcode" icon={<KeyRound className="h-5 w-5" />} />
+      <CardHeader title="Change my password" icon={<KeyRound className="h-5 w-5" />} />
       <form className="space-y-4 p-5" onSubmit={async (e) => {
         e.preventDefault(); setBusy(true); setMsg(null);
-        try { await api('auth/change-passcode', { body: { current: cur, next } }); setMsg({ ok: true, text: 'Passcode changed. Other devices have been signed out.' }); setCur(''); setNext(''); }
+        try { await api('auth/change-passcode', { body: { current: cur, next } }); setMsg({ ok: true, text: 'Password changed. Other devices have been signed out.' }); setCur(''); setNext(''); }
         catch (err) { setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'Could not reach the server.' }); }
         setBusy(false);
       }}>
-        <Field label="Current passcode"><Input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
-        <Field label="New passcode" hint="At least 10 characters."><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required /></Field>
-        <div className="flex flex-wrap items-center gap-3"><Btn type="submit" variant="accent" disabled={busy || next.length < 10}>Change passcode</Btn>{msg && <span role="status" className={`text-sm font-semibold ${msg.ok ? 'text-emerald-700' : 'text-crimson-700'}`}>{msg.text}</span>}</div>
+        <Field label="Current password"><Input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required /></Field>
+        <Field label="New password" hint="At least 10 characters."><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required /></Field>
+        <div className="flex flex-wrap items-center gap-3"><Btn type="submit" variant="accent" disabled={busy || next.length < 10}>Change password</Btn>{msg && <span role="status" className={`text-sm font-semibold ${msg.ok ? 'text-emerald-700' : 'text-crimson-700'}`}>{msg.text}</span>}</div>
       </form>
     </Card>
   );
